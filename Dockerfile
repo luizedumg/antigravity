@@ -17,6 +17,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Dummy DATABASE_URL para build (Prisma 5 exige)
+ENV DATABASE_URL="file:./prisma/dev.db"
+
 # Gerar Prisma Client
 RUN npx prisma generate
 
