@@ -14,6 +14,9 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Instalar OpenSSL para compatibilidade com Prisma engine
+RUN apk add --no-cache openssl
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -32,18 +35,19 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Instalar OpenSSL para Prisma engine funcionar em runtime
+RUN apk add --no-cache openssl
+
 # Copiar arquivos necessários do build standalone
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copiar Prisma schema + config (para poder rodar db push)
+# Copiar Prisma schema + CLI (para poder rodar db push no startup)
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
 
 # Criar diretório de templates (será montado como volume)
 RUN mkdir -p /app/templates
