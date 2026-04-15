@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+*.md
+.env
+.env.*
+google-service-account.json
+check_anchors.js
+testZapsign.js
+test1.xml
+prisma/dev.db
+prisma/dev.db-journal

@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Contract {
+  id              String   @id @default(uuid())
+  patientName     String
+  patientCpf      String
+  patientAddress  String
+  surgeryType     String
+  status          String   @default("PENDENTE") // PENDENTE, VISUALIZADO, ASSINADO
+  linkId          String?  @unique // unique link id to send via whatsapp
+  zapsignToken    String?  // ZapSign document token id
+  formData        String?  // JSON format for other dynamic inputs
+  googleDriveFileId String? // ID do arquivo no Google Drive após upload
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SurgeryTemplate {
+  id              String   @id @default(uuid())
+  name            String   @unique // ex: Rinoplastia
+  questionsJson   String   // Form schema
+  baseFilename    String?  // Document docx name associated with this template
+}
