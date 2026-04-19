@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { getTemplates } from '@/actions/templates';
 import Link from 'next/link';
-import { createContractDraft as createContract } from '@/actions/contracts';
-import { sendWhatsAppMessage } from '@/actions/whatsapp';
+import { createContractDraft as createContract, updateContractStatus } from '@/actions/contracts';
+import { sendWhatsAppMessage, sendStatusNotification } from '@/actions/whatsapp';
 
 const COUNTRY_CODES = [
   { code: '55', label: '🇧🇷 +55 (Brasil)', flag: '🇧🇷' },
@@ -29,6 +29,7 @@ export default function NovoLinkPaciente() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [surgeryType, setSurgeryType] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
+  const [contractId, setContractId] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(false);
@@ -71,6 +72,8 @@ export default function NovoLinkPaciente() {
       });
       const link = `${window.location.origin}/paciente/${contract.linkId}`;
       setGeneratedLink(link);
+      // Guardar o ID do contrato para uso posterior
+      setContractId(contract.id);
     } catch (e) {
       console.error(e);
       alert("Erro ao criar contrato");
@@ -96,6 +99,15 @@ export default function NovoLinkPaciente() {
       });
       if (result.success) {
         setWhatsappSent(true);
+        // Marcar contrato como ENVIADO e notificar médico
+        if (contractId) {
+          await updateContractStatus(contractId, 'ENVIADO');
+          await sendStatusNotification({
+            patientName,
+            surgeryType,
+            event: 'ENVIADO'
+          });
+        }
       } else {
         setWhatsappError(result.error || 'Erro desconhecido ao enviar mensagem.');
       }

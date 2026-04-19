@@ -185,25 +185,27 @@ export async function checkZapsignDocumentStatus(contractId: string) {
     if (!response.ok) return null;
     const data = await response.json();
     
-    // Na ZapSign, status "signed" significa que todos assinaram
-    if (data.status === 'signed' && contract.status !== 'ASSINADO') {
+    // Sync de status como fallback (caso o webhook tenha falhado)
+    if (data.status === 'signed' && !['ASSINADO', 'DRIVE_OK'].includes(contract.status)) {
        await prisma.contract.update({
          where: { id: contractId },
          data: { status: 'ASSINADO' }
        });
 
-       // Upload automático para o Google Drive (se ainda não foi feito)
+       // Tentar upload para o Drive se ainda não foi feito
        if (!contract.googleDriveFileId) {
          const { uploadSignedPdfToDrive } = await import('./googledrive');
          uploadSignedPdfToDrive(contractId)
-           .then(result => {
+           .then(async (result) => {
              if (result.success) {
-               console.log(`[Polling] ✅ PDF salvo no Google Drive: ${result.fileId}`);
-             } else {
-               console.error(`[Polling] ❌ Falha ao salvar no Drive: ${result.error}`);
+               console.log(`[Polling Fallback] ✅ PDF salvo no Drive: ${result.fileId}`);
+               await prisma.contract.update({
+                 where: { id: contractId },
+                 data: { status: 'DRIVE_OK' }
+               });
              }
            })
-           .catch(err => console.error('[Polling] Erro no upload para Drive:', err));
+           .catch(err => console.error('[Polling Fallback] Erro:', err));
        }
     }
 

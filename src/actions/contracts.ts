@@ -55,3 +55,21 @@ export async function deleteContractById(id: string) {
   await prisma.contract.delete({ where: { id } });
   revalidatePath('/admin/historico');
 }
+
+// Atualiza o status do contrato (usado pelo webhook, envio WhatsApp, etc.)
+export async function updateContractStatus(contractId: string, newStatus: string) {
+  await prisma.contract.update({
+    where: { id: contractId },
+    data: { status: newStatus }
+  });
+  revalidatePath('/admin/historico');
+}
+
+// Atualiza status pelo linkId (quando não temos o id interno)
+export async function updateContractStatusByLink(linkId: string, newStatus: string) {
+  await prisma.contract.update({
+    where: { linkId },
+    data: { status: newStatus }
+  });
+  revalidatePath('/admin/historico');
+}

@@ -14,7 +14,7 @@ model Contract {
   patientWhatsApp String?  // Número completo internacional (ex: 5531999887766)
   patientAddress  String
   surgeryType     String
-  status          String   @default("PENDENTE") // PENDENTE, VISUALIZADO, ASSINADO
+  status          String   @default("PENDENTE") // PENDENTE, ENVIADO, VISUALIZADO, ASSINATURA_PARCIAL, ASSINADO, DRIVE_OK, RECUSADO
   linkId          String?  @unique // unique link id to send via whatsapp
   zapsignToken    String?  // ZapSign document token id
   formData        String?  // JSON format for other dynamic inputs

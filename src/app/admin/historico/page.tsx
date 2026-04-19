@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { getContracts, getDistinctSurgeryTypes } from '@/actions/historico';
 import { deleteContractById } from '@/actions/contracts';
 import { checkZapsignDocumentStatus } from '@/actions/zapsign';
-import { uploadSignedPdfToDrive } from '@/actions/googledrive';
 
 type Contract = {
   id: string;
@@ -22,7 +21,6 @@ type Contract = {
 
 function formatWhatsApp(num: string): string {
   if (!num || num.length < 10) return num || '';
-  // Tenta formatar como brasileiro: +55 (31) 99988-7766
   if (num.startsWith('55') && num.length >= 12) {
     const ddd = num.slice(2, 4);
     const phone = num.slice(4);
@@ -34,6 +32,17 @@ function formatWhatsApp(num: string): string {
   return `+${num}`;
 }
 
+// ══════ STATUS CONFIGURATION ══════
+const STATUS_CONFIG: Record<string, { className: string; label: string; icon: string; borderColor: string }> = {
+  PENDENTE:           { className: 'status-badge status-badge--pendente',    label: 'Aguardando Preenchimento', icon: '⏳', borderColor: 'var(--primary)' },
+  ENVIADO:            { className: 'status-badge status-badge--enviado',     label: 'Enviado via WhatsApp',     icon: '📨', borderColor: '#0891b2' },
+  VISUALIZADO:        { className: 'status-badge status-badge--visualizado', label: 'Contrato Visualizado',     icon: '👁️', borderColor: 'var(--warning)' },
+  ASSINATURA_PARCIAL: { className: 'status-badge status-badge--parcial',     label: 'Assinatura Parcial',       icon: '✍️', borderColor: '#d97706' },
+  ASSINADO:           { className: 'status-badge status-badge--assinado',    label: 'Totalmente Assinado',      icon: '✅', borderColor: 'var(--success)' },
+  DRIVE_OK:           { className: 'status-badge status-badge--drive',       label: 'Concluído (Drive ✓)',      icon: '☁️', borderColor: '#4285F4' },
+  RECUSADO:           { className: 'status-badge status-badge--recusado',    label: 'Recusado',                 icon: '❌', borderColor: '#ef4444' },
+};
+
 export default function HistoricoPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [surgeryTypes, setSurgeryTypes] = useState<string[]>([]);
@@ -41,8 +50,7 @@ export default function HistoricoPage() {
   const [filterSurgery, setFilterSurgery] = useState('TODOS');
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [checkingId, setCheckingId] = useState<string | null>(null);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const loadContracts = useCallback(async () => {
     const data = await getContracts({
@@ -51,20 +59,21 @@ export default function HistoricoPage() {
     });
     setContracts(data as Contract[]);
     setLoading(false);
+    setLastUpdate(new Date());
   }, [filterStatus, filterSurgery]);
 
   useEffect(() => {
     loadContracts();
   }, [loadContracts]);
 
-  // Auto-polling: refresh every 30s if there are pending/visualizado contracts
+  // Auto-polling: 10s para contratos ativos, 30s quando tudo finalizado
   useEffect(() => {
-    const hasPending = contracts.some(c => c.status === 'PENDENTE' || c.status === 'VISUALIZADO');
-    if (!hasPending) return;
-
+    const hasActive = contracts.some(c =>
+      ['PENDENTE', 'ENVIADO', 'VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO'].includes(c.status)
+    );
     const interval = setInterval(() => {
       loadContracts();
-    }, 30000);
+    }, hasActive ? 10000 : 30000);
 
     return () => clearInterval(interval);
   }, [contracts, loadContracts]);
@@ -86,47 +95,27 @@ export default function HistoricoPage() {
     }
   };
 
-  const handleCheckStatus = async (contractId: string) => {
-    setCheckingId(contractId);
+  const handleDownloadPdf = async (contractId: string) => {
     const res = await checkZapsignDocumentStatus(contractId);
     if (res && res.signedFileUrl) {
       window.open(res.signedFileUrl, '_blank');
-      await loadContracts();
     } else {
-      alert('O documento ainda não foi totalmente assinado pelas partes.');
+      alert('PDF assinado ainda não está disponível.');
     }
-    setCheckingId(null);
-  };
-
-  const handleUploadToDrive = async (contractId: string) => {
-    setUploadingId(contractId);
-    try {
-      const result = await uploadSignedPdfToDrive(contractId);
-      if (result.success) {
-        alert('✅ PDF salvo no Google Drive com sucesso!');
-        await loadContracts();
-      } else {
-        alert('❌ Erro ao salvar no Drive: ' + (result.error || 'Erro desconhecido'));
-      }
-    } catch (err: any) {
-      alert('❌ Erro: ' + (err.message || 'Falha na conexão'));
-    }
-    setUploadingId(null);
   };
 
   const getStatusBadge = (status: string) => {
-    const map: Record<string, { className: string; label: string }> = {
-      PENDENTE:    { className: 'status-badge status-badge--pendente',    label: 'Aguardando Preenchimento' },
-      VISUALIZADO: { className: 'status-badge status-badge--visualizado', label: 'Aguardando Assinatura' },
-      ASSINADO:    { className: 'status-badge status-badge--assinado',    label: 'Assinado e Finalizado' },
-    };
-    const info = map[status] || map.PENDENTE;
+    const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDENTE;
     return (
-      <span className={info.className}>
+      <span className={config.className}>
         <span className="dot" />
-        {info.label}
+        {config.label}
       </span>
     );
+  };
+
+  const getBorderColor = (status: string) => {
+    return STATUS_CONFIG[status]?.borderColor || 'var(--primary)';
   };
 
   const formatDate = (date: Date) => {
@@ -138,11 +127,79 @@ export default function HistoricoPage() {
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
+  // Status progress indicator
+  const getProgressSteps = (status: string) => {
+    const steps = ['PENDENTE', 'ENVIADO', 'VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO', 'DRIVE_OK'];
+    const icons = ['📄', '📨', '👁️', '✍️', '✅', '☁️'];
+
+    if (status === 'RECUSADO') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.75rem' }}>
+          <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600 }}>❌ Documento recusado por um signatário</span>
+        </div>
+      );
+    }
+
+    const currentIdx = steps.indexOf(status);
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', marginTop: '0.75rem' }}>
+        {steps.map((step, i) => {
+          const isCompleted = i <= currentIdx;
+          const isCurrent = i === currentIdx;
+          return (
+            <div key={step} style={{ display: 'flex', alignItems: 'center' }}>
+              <div
+                title={STATUS_CONFIG[step]?.label}
+                style={{
+                  width: isCurrent ? '28px' : '22px',
+                  height: isCurrent ? '28px' : '22px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: isCurrent ? '0.8rem' : '0.65rem',
+                  background: isCompleted
+                    ? `${getBorderColor(step)}20`
+                    : 'rgba(148, 163, 184, 0.1)',
+                  border: isCurrent
+                    ? `2px solid ${getBorderColor(step)}`
+                    : isCompleted
+                    ? `1px solid ${getBorderColor(step)}50`
+                    : '1px solid rgba(148, 163, 184, 0.2)',
+                  opacity: isCompleted ? 1 : 0.35,
+                  transition: 'all 0.3s ease',
+                  flexShrink: 0,
+                }}
+              >
+                {icons[i]}
+              </div>
+              {i < steps.length - 1 && (
+                <div style={{
+                  width: '12px',
+                  height: '2px',
+                  background: i < currentIdx
+                    ? getBorderColor(steps[i + 1])
+                    : 'rgba(148, 163, 184, 0.2)',
+                  transition: 'all 0.3s ease'
+                }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <main className="container">
       <div className="glass-panel animate-fade-in" style={{ marginTop: '5vh' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h1 style={{ color: 'var(--primary)', margin: 0 }}>Histórico de Contratos</h1>
+          <div>
+            <h1 style={{ color: 'var(--primary)', margin: 0 }}>Histórico de Contratos</h1>
+            <p style={{ fontSize: '0.8rem', opacity: 0.5, margin: '0.25rem 0 0 0' }}>
+              🔄 Atualização automática • Última: {lastUpdate.toLocaleTimeString('pt-BR')}
+            </p>
+          </div>
           <Link href="/admin/novo" className="btn-primary">
             + Novo Contrato
           </Link>
@@ -155,8 +212,12 @@ export default function HistoricoPage() {
             <select value={filterStatus} onChange={e => { setLoading(true); setFilterStatus(e.target.value); }}>
               <option value="TODOS">Todos</option>
               <option value="PENDENTE">Pendente</option>
-              <option value="VISUALIZADO">Aguardando Assinatura</option>
+              <option value="ENVIADO">Enviado</option>
+              <option value="VISUALIZADO">Visualizado</option>
+              <option value="ASSINATURA_PARCIAL">Assinatura Parcial</option>
               <option value="ASSINADO">Assinado</option>
+              <option value="DRIVE_OK">Concluído (Drive)</option>
+              <option value="RECUSADO">Recusado</option>
             </select>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -188,15 +249,12 @@ export default function HistoricoPage() {
               key={contract.id}
               className="glass-panel contract-card"
               style={{
-                borderLeft: `6px solid ${
-                  contract.status === 'ASSINADO' ? 'var(--success)' :
-                  contract.status === 'VISUALIZADO' ? 'var(--warning)' :
-                  'var(--primary)'
-                }`,
+                borderLeft: `6px solid ${getBorderColor(contract.status)}`,
                 animationDelay: `${i * 0.05}s`
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+              {/* ── Cabeçalho: Nome + Badge ── */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{contract.patientName}</h3>
                   <p style={{ margin: '0.25rem 0 0 0', opacity: 0.7, fontSize: '0.9rem' }}>
@@ -210,6 +268,10 @@ export default function HistoricoPage() {
                 {getStatusBadge(contract.status)}
               </div>
 
+              {/* ── Barra de Progresso Visual ── */}
+              {getProgressSteps(contract.status)}
+
+              {/* ── Ações ── */}
               <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                 <input
                   readOnly
@@ -228,20 +290,19 @@ export default function HistoricoPage() {
                   onClick={e => { (e.target as HTMLInputElement).select(); }}
                 />
 
-                {contract.status !== 'PENDENTE' && contract.zapsignToken && (
+                {/* Baixar PDF — só mostra quando assinado ou no Drive */}
+                {['ASSINADO', 'DRIVE_OK'].includes(contract.status) && contract.zapsignToken && (
                   <button
-                    onClick={() => handleCheckStatus(contract.id)}
-                    disabled={checkingId === contract.id}
-                    className={contract.status === 'ASSINADO' ? 'btn-success' : 'btn-primary'}
+                    onClick={() => handleDownloadPdf(contract.id)}
+                    className="btn-success"
                     style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', minHeight: '40px' }}
                   >
-                    {checkingId === contract.id ? 'Buscando...' :
-                     contract.status === 'ASSINADO' ? '📥 Baixar PDF' : '🔄 Verificar / Baixar'}
+                    📥 Baixar PDF
                   </button>
                 )}
 
-                {/* Google Drive indicator */}
-                {contract.status === 'ASSINADO' && contract.googleDriveFileId && (
+                {/* Drive indicator */}
+                {contract.googleDriveFileId && (
                   <span
                     title={`Salvo no Google Drive (ID: ${contract.googleDriveFileId})`}
                     style={{
@@ -262,31 +323,8 @@ export default function HistoricoPage() {
                   </span>
                 )}
 
-                {/* Manual upload button if signed but not yet on Drive */}
-                {contract.status === 'ASSINADO' && !contract.googleDriveFileId && (
-                  <button
-                    onClick={() => handleUploadToDrive(contract.id)}
-                    disabled={uploadingId === contract.id}
-                    style={{
-                      padding: '0.4rem 0.8rem',
-                      fontSize: '0.82rem',
-                      minHeight: '36px',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(66, 133, 244, 0.4)',
-                      background: 'rgba(66, 133, 244, 0.1)',
-                      color: '#4285F4',
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem'
-                    }}
-                  >
-                    {uploadingId === contract.id ? '⏳ Enviando...' : '☁️ Salvar no Drive'}
-                  </button>
-                )}
-
-                {contract.status !== 'ASSINADO' && (
+                {/* Excluir — só para contratos que não estão finalizados */}
+                {!['ASSINADO', 'DRIVE_OK'].includes(contract.status) && (
                   <button
                     onClick={() => handleDelete(contract.id)}
                     disabled={deletingId === contract.id}

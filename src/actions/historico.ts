@@ -18,15 +18,19 @@ export async function getContracts(filters?: { status?: string; surgeryType?: st
 }
 
 export async function getDashboardMetrics() {
-  const [total, pendentes, visualizados, assinados, templates] = await Promise.all([
+  const [total, pendentes, enviados, visualizados, parciais, assinados, driveOk, recusados, templates] = await Promise.all([
     prisma.contract.count(),
     prisma.contract.count({ where: { status: 'PENDENTE' } }),
+    prisma.contract.count({ where: { status: 'ENVIADO' } }),
     prisma.contract.count({ where: { status: 'VISUALIZADO' } }),
+    prisma.contract.count({ where: { status: 'ASSINATURA_PARCIAL' } }),
     prisma.contract.count({ where: { status: 'ASSINADO' } }),
+    prisma.contract.count({ where: { status: 'DRIVE_OK' } }),
+    prisma.contract.count({ where: { status: 'RECUSADO' } }),
     prisma.surgeryTemplate.count()
   ]);
 
-  return { total, pendentes, visualizados, assinados, templates };
+  return { total, pendentes, enviados, visualizados, parciais, assinados: assinados + driveOk, recusados, templates };
 }
 
 export async function getDistinctSurgeryTypes(): Promise<string[]> {
