@@ -11,19 +11,19 @@ export async function getTemplateByName(name: string) {
 }
 
 // Quando o admin (cirurgião) criar um link
-export async function createContractDraft(data: { patientName: string, patientCpf: string, surgeryType: string }) {
+export async function createContractDraft(data: { patientName: string, patientWhatsapp: string, surgeryType: string }) {
   const linkId = crypto.randomUUID();
   const contract = await prisma.contract.create({
     data: {
       patientName: data.patientName,
-      patientCpf: data.patientCpf,
+      patientWhatsapp: data.patientWhatsapp,
       surgeryType: data.surgeryType,
       patientAddress: "", // Preenchido depois pelo paciente
       linkId,
       status: 'PENDENTE'
     }
   });
-  
+
   revalidatePath('/admin/historico');
   return contract;
 }
