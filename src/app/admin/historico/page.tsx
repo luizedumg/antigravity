@@ -98,14 +98,17 @@ export default function HistoricoPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    const pin = window.prompt("Para excluir este contrato, digite a senha de segurança (0405):");
-    if (pin === '0405') {
+    const confirmed = window.confirm('⚠️ Atenção!\n\nVocê está prestes a excluir este contrato permanentemente.\nEssa ação não pode ser desfeita.\n\nDeseja continuar?');
+    if (!confirmed) return;
+    
+    const pin = window.prompt('Digite a senha de exclusão para confirmar:');
+    if (pin === '1986') {
       setDeletingId(id);
       await deleteContractById(id);
       await loadContracts();
       setDeletingId(null);
     } else if (pin !== null) {
-      alert("Senha incorreta. A exclusão foi cancelada.");
+      alert('Senha incorreta. A exclusão foi cancelada.');
     }
   };
 
@@ -369,17 +372,26 @@ export default function HistoricoPage() {
                   </span>
                 )}
 
-                {/* Excluir — só para contratos que não estão finalizados */}
-                {!['ASSINADO', 'DRIVE_OK'].includes(contract.status) && (
-                  <button
-                    onClick={() => handleDelete(contract.id)}
-                    disabled={deletingId === contract.id}
-                    className="btn-danger"
-                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', minHeight: '40px' }}
-                  >
-                    {deletingId === contract.id ? 'Excluindo...' : '✖ Excluir'}
-                  </button>
-                )}
+                {/* Excluir — ícone discreto para todos os contratos */}
+                <button
+                  onClick={() => handleDelete(contract.id)}
+                  disabled={deletingId === contract.id}
+                  title="Excluir contrato"
+                  style={{
+                    width: '36px', height: '36px', borderRadius: '8px',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    background: 'rgba(239, 68, 68, 0.06)',
+                    color: '#ef4444', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.95rem', transition: 'all 0.2s ease',
+                    opacity: deletingId === contract.id ? 0.5 : 0.6,
+                    flexShrink: 0
+                  }}
+                  onMouseEnter={e => { (e.currentTarget).style.opacity = '1'; (e.currentTarget).style.background = 'rgba(239, 68, 68, 0.15)'; }}
+                  onMouseLeave={e => { (e.currentTarget).style.opacity = '0.6'; (e.currentTarget).style.background = 'rgba(239, 68, 68, 0.06)'; }}
+                >
+                  {deletingId === contract.id ? '⏳' : '🗑️'}
+                </button>
               </div>
             </div>
           ))}
