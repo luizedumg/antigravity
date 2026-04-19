@@ -13,7 +13,7 @@ export default function NovoTemplate() {
   const [file, setFile] = useState<File | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [aiProvider, setAiProvider] = useState('gemini');
-  const [aiModel, setAiModel] = useState('gemini-2.5-flash');
+  const [aiModel, setAiModel] = useState('gemini-3.1-pro');
   const [loading, setLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [keyStatus, setKeyStatus] = useState<KeyStatus>({});
@@ -21,11 +21,32 @@ export default function NovoTemplate() {
   const [savingKey, setSavingKey] = useState(false);
   const router = useRouter();
 
-  // Modelos REAIS disponíveis em cada provedor
+  // Modelos REAIS disponíveis em cada provedor (abril 2026)
   const modelsByProvider: Record<string, string[]> = {
-    gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro'],
-    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    claude: ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']
+    gemini: [
+      'gemini-3.1-pro',           // Flagship — raciocínio avançado
+      'gemini-3-flash',           // Alta velocidade
+      'gemini-2.5-pro',           // Muito capaz
+      'gemini-2.5-flash',         // Rápido e econômico
+      'gemini-2.0-flash',         // Legado
+      'gemini-1.5-pro',           // Estável
+    ],
+    openai: [
+      'gpt-5.4',                  // Flagship
+      'gpt-5.4-mini',             // Compacto e rápido
+      'gpt-5.4-nano',             // Ultra-rápido, alto volume
+      'o3-pro',                   // Raciocínio profundo
+      'gpt-4o',                   // Legado (ainda ativo na API)
+      'gpt-4-turbo',              // Legado
+    ],
+    claude: [
+      'claude-opus-4-7',          // Mais capaz (agentic)
+      'claude-sonnet-4-6',        // Equilíbrio velocidade/inteligência
+      'claude-haiku-4-5-20251001',// Rápido e econômico
+      'claude-sonnet-4-20250514', // Sonnet 4 original
+      'claude-3-5-sonnet-20241022', // Legado (estável)
+      'claude-3-haiku-20240307',  // Legado (mais barato)
+    ]
   };
 
   // Carregar status das chaves salvas

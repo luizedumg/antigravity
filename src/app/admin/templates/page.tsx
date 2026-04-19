@@ -105,7 +105,7 @@ export default function TemplatesPage() {
                   {/* Expandable questions preview */}
                   <div className={`template-questions ${isExpanded ? 'expanded' : 'collapsed'}`}>
                     {isExpanded && (
-                      <div style={{ marginTop: '0.75rem', padding: '1rem', borderRadius: '10px', background: 'rgba(37, 99, 235, 0.04)', border: '1px solid rgba(37, 99, 235, 0.1)' }}>
+                      <div style={{ marginTop: '0.75rem', padding: '1rem', borderRadius: '10px', background: 'rgba(37, 99, 235, 0.04)', border: '1px solid rgba(37, 99, 235, 0.1)', maxHeight: '400px', overflowY: 'auto' }}>
                         <p style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '0.75rem', fontWeight: 500 }}>
                           Campos dinâmicos extraídos do documento:
                         </p>
