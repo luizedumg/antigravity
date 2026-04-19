@@ -40,10 +40,10 @@ export async function generateDocument(contractId: string) {
 
   const mergedData: Record<string, string> = {
      nome_paciente: contract.patientName,
-     cpf_paciente: contract.patientCpf,
+     cpf_paciente: contract.patientCpf ?? '',
      endereco_paciente: contract.patientAddress,
      cirurgia: contract.surgeryType,
-     ...dynamicData 
+     ...dynamicData
   };
 
   const content = fs.readFileSync(templatePath, 'binary');
