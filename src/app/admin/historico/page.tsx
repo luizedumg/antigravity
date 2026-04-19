@@ -67,13 +67,27 @@ export default function HistoricoPage() {
   }, [loadContracts]);
 
   // Auto-polling: 10s para contratos ativos, 30s quando tudo finalizado
+  // + Polling ativo na ZapSign para contratos presos (fallback do webhook)
   useEffect(() => {
     const hasActive = contracts.some(c =>
       ['PENDENTE', 'ENVIADO', 'VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO'].includes(c.status)
     );
-    const interval = setInterval(() => {
-      loadContracts();
-    }, hasActive ? 10000 : 30000);
+    const interval = setInterval(async () => {
+      // Verificar status na ZapSign para contratos que podem estar travados
+      const stuckContracts = contracts.filter(c =>
+        c.zapsignToken && ['VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO'].includes(c.status)
+      );
+      
+      for (const c of stuckContracts) {
+        try {
+          await checkZapsignDocumentStatus(c.id);
+        } catch (e) {
+          // Erro silencioso — o polling não deve quebrar
+        }
+      }
+      
+      await loadContracts();
+    }, hasActive ? 15000 : 60000);
 
     return () => clearInterval(interval);
   }, [contracts, loadContracts]);
@@ -95,12 +109,27 @@ export default function HistoricoPage() {
     }
   };
 
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+
+  const handleCheckStatus = async (contractId: string) => {
+    setCheckingId(contractId);
+    try {
+      const res = await checkZapsignDocumentStatus(contractId);
+      console.log('[Manual Check]', res);
+      await loadContracts();
+    } catch (e) {
+      console.error('Erro ao verificar:', e);
+    }
+    setCheckingId(null);
+  };
+
   const handleDownloadPdf = async (contractId: string) => {
     const res = await checkZapsignDocumentStatus(contractId);
     if (res && res.signedFileUrl) {
       window.open(res.signedFileUrl, '_blank');
     } else {
-      alert('PDF assinado ainda não está disponível.');
+      alert('PDF assinado ainda não está disponível. O status foi verificado.');
+      await loadContracts();
     }
   };
 
@@ -290,14 +319,31 @@ export default function HistoricoPage() {
                   onClick={e => { (e.target as HTMLInputElement).select(); }}
                 />
 
-                {/* Baixar PDF — só mostra quando assinado ou no Drive */}
-                {['ASSINADO', 'DRIVE_OK'].includes(contract.status) && contract.zapsignToken && (
+                {/* Baixar PDF — sempre visível se tem zapsignToken */}
+                {contract.zapsignToken && (
                   <button
                     onClick={() => handleDownloadPdf(contract.id)}
                     className="btn-success"
                     style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', minHeight: '40px' }}
                   >
                     📥 Baixar PDF
+                  </button>
+                )}
+
+                {/* Verificar Status Manual — para contratos em andamento */}
+                {contract.zapsignToken && !['DRIVE_OK', 'RECUSADO'].includes(contract.status) && (
+                  <button
+                    onClick={() => handleCheckStatus(contract.id)}
+                    disabled={checkingId === contract.id}
+                    style={{
+                      padding: '0.5rem 1rem', fontSize: '0.85rem', minHeight: '40px',
+                      borderRadius: '8px', border: '1px solid rgba(148, 163, 184, 0.3)',
+                      background: 'rgba(148, 163, 184, 0.08)', color: 'var(--text)',
+                      cursor: 'pointer', fontWeight: 500, fontFamily: 'var(--font-base)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {checkingId === contract.id ? '⏳ Verificando...' : '🔄 Verificar'}
                   </button>
                 )}
 
