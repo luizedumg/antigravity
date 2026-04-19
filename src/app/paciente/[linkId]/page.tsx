@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { getContractByLink, updateContractData, getTemplateByName } from '@/actions/contracts';
 import { generateDocumentHtmlPreview } from '@/actions/document';
 import { sendToZapsign } from '@/actions/zapsign';
+import { sendPatientAlerts } from '@/actions/alerts';
 import { useParams } from 'next/navigation';
 
 export default function WizardPaciente() {
@@ -57,6 +58,15 @@ export default function WizardPaciente() {
     try {
       // Salva os dados na base de dados (o endereço nativo ficará vazio se não quisermos)
       await updateContractData(linkId, "", dynamicAnswers);
+      
+      // Enviar alertas ao médico sobre respostas críticas (imagem, alergias, drogas, doenças)
+      const questionsList2 = template?.questionsJson ? JSON.parse(template.questionsJson) : [];
+      sendPatientAlerts({
+        patientName: contract.patientName,
+        surgeryType: contract.surgeryType,
+        answers: dynamicAnswers,
+        questions: questionsList2
+      }).catch(err => console.error('Erro ao enviar alertas:', err));
       
       // Gera preview HTML
       const html = await generateDocumentHtmlPreview(contract.id);

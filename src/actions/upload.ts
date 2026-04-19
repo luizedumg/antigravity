@@ -6,13 +6,21 @@ import path from 'path';
 import PizZip from 'pizzip';
 import { revalidatePath } from 'next/cache';
 import { GoogleGenAI } from '@google/genai';
+import { getApiKeyForProvider } from './apikeys';
 
 export async function uploadTemplateDocx(formData: FormData) {
   const file = formData.get('file') as File;
   const name = formData.get('name') as string;
-  const apiKey = (formData.get('apiKey') as string) || '';
+  let apiKey = (formData.get('apiKey') as string) || '';
   const aiProvider = (formData.get('aiProvider') as string) || 'gemini';
   const aiModel = (formData.get('aiModel') as string) || 'gemini-2.5-flash';
+  const useSavedKey = formData.get('useSavedKey') === 'true';
+
+  // Se não veio uma apiKey manual mas useSavedKey está ativo, buscar do banco
+  if (!apiKey && useSavedKey) {
+    const savedKey = await getApiKeyForProvider(aiProvider);
+    if (savedKey) apiKey = savedKey;
+  }
 
   if (!file || !name) throw new Error('O arquivo DOCX e o nome da Cirurgia são obrigatórios.');
 

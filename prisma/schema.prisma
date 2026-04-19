@@ -29,3 +29,10 @@ model SurgeryTemplate {
   questionsJson   String   // Form schema
   baseFilename    String?  // Document docx name associated with this template
 }
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  provider  String   @unique  // gemini, openai, claude
+  key       String             // chave da API
+  createdAt DateTime @default(now())
+}

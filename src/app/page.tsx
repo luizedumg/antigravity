@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDashboardMetrics } from "@/actions/historico";
+import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = 'force-dynamic';
 
@@ -102,6 +103,9 @@ export default async function Home() {
         <div style={{ opacity: 0.6, fontSize: '0.85rem', marginTop: '1rem' }}>
           {metrics.templates} modelo(s) de cirurgia cadastrado(s)
         </div>
+
+        {/* ══════ LOGOUT ══════ */}
+        <LogoutButton />
       </div>
     </main>
   );
