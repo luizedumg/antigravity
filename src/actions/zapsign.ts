@@ -189,11 +189,23 @@ export async function checkZapsignDocumentStatus(contractId: string) {
     if (!response.ok) return null;
     const data = await response.json();
     
-    // Sync de status como fallback (caso o webhook tenha falhado)
+    const { sendStatusNotification } = await import('./whatsapp');
+    const patientName = contract.patientName;
+    const surgeryType = contract.surgeryType;
+
+    // ── TOTALMENTE ASSINADO ──
     if (data.status === 'signed' && !['ASSINADO', 'DRIVE_OK'].includes(contract.status)) {
        await prisma.contract.update({
          where: { id: contractId },
          data: { status: 'ASSINADO' }
+       });
+
+       console.log(`[Polling] ✅ Contrato ${contractId} → ASSINADO`);
+
+       // Notificar médico via WhatsApp
+       await sendStatusNotification({
+         patientName, surgeryType,
+         event: 'ASSINADO'
        });
 
        // Tentar upload para o Drive se ainda não foi feito
@@ -207,15 +219,46 @@ export async function checkZapsignDocumentStatus(contractId: string) {
                  where: { id: contractId },
                  data: { status: 'DRIVE_OK' }
                });
+               // Notificar médico que o PDF foi salvo no Drive
+               await sendStatusNotification({
+                 patientName, surgeryType,
+                 event: 'DRIVE_OK'
+               });
              }
            })
            .catch(err => console.error('[Polling Fallback] Erro:', err));
        }
     }
+    // ── ASSINATURA PARCIAL (algum signatário assinou, mas não todos) ──
+    else if (data.status !== 'signed' && !['ASSINADO', 'DRIVE_OK', 'ASSINATURA_PARCIAL'].includes(contract.status)) {
+      // Verificar se pelo menos um signatário já assinou
+      const signers = data.signers || [];
+      const signedSigners = signers.filter((s: any) => s.status === 'signed');
+      
+      if (signedSigners.length > 0 && signedSigners.length < signers.length) {
+        await prisma.contract.update({
+          where: { id: contractId },
+          data: { status: 'ASSINATURA_PARCIAL' }
+        });
+
+        const signerName = signedSigners.map((s: any) => s.name).join(', ');
+        console.log(`[Polling] ✍️ Contrato ${contractId} → ASSINATURA_PARCIAL (${signerName})`);
+
+        await sendStatusNotification({
+          patientName, surgeryType,
+          event: 'ASSINATURA_PARCIAL',
+          signerName
+        });
+      }
+    }
 
     return {
       status: data.status,
-      signedFileUrl: data.signed_file || null
+      signedFileUrl: data.signed_file || null,
+      signers: (data.signers || []).map((s: any) => ({
+        name: s.name,
+        status: s.status
+      }))
     };
   } catch (err) {
     console.error("Erro ao checar status na ZapSign", err);

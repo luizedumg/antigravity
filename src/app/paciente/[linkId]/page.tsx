@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getContractByLink, updateContractData, getTemplateByName, getSignUrls } from '@/actions/contracts';
+import { getContractByLink, updateContractData, getTemplateByName } from '@/actions/contracts';
 import { generateDocumentHtmlPreview } from '@/actions/document';
 import { sendToZapsign } from '@/actions/zapsign';
 import { sendPatientAlerts } from '@/actions/alerts';
@@ -28,30 +28,44 @@ export default function WizardPaciente() {
 
   useEffect(() => {
     async function load() {
-      const c = await getContractByLink(linkId);
-      if (c) {
-        setContract(c);
-        const t = await getTemplateByName(c.surgeryType);
-        if (t) setTemplate(t);
+      try {
+        const c = await getContractByLink(linkId);
+        if (c) {
+          setContract(c);
+          const t = await getTemplateByName(c.surgeryType);
+          if (t) setTemplate(t);
 
-        // Se o contrato já foi totalmente assinado ou salvo no Drive
-        if (['ASSINADO', 'DRIVE_OK'].includes(c.status)) {
-          setStep(4);
-        }
-        // Se o contrato já passou pelo ZapSign (tem URLs salvas), restaurar do banco
-        else if (['VISUALIZADO', 'ASSINATURA_PARCIAL'].includes(c.status) && c.id) {
-          const urls = await getSignUrls(c.id);
-          if (urls && urls.patientSignUrl) {
-            if (urls.expired) {
-              setUrlsExpired(true);
-            } else {
-              setSignUrl(urls.patientSignUrl);
-              setResponsavelSignUrl(urls.responsavelSignUrl);
-              setNomeResponsavel(urls.nomeResponsavel);
+          // Se o contrato já foi totalmente assinado ou salvo no Drive
+          if (['ASSINADO', 'DRIVE_OK'].includes(c.status)) {
+            setStep(4);
+          }
+          // Se o contrato já passou pelo ZapSign (tem URLs salvas no banco), restaurar
+          else if (c.patientSignUrl) {
+            // Verificar expiração de 30 dias
+            if (c.signUrlsCreatedAt) {
+              const createdAt = new Date(c.signUrlsCreatedAt);
+              const diffDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+              if (diffDays > 30) {
+                setUrlsExpired(true);
+                setStep(3);
+                setLoading(false);
+                return;
+              }
             }
+            setSignUrl(c.patientSignUrl);
+            setResponsavelSignUrl(c.responsavelSignUrl || null);
+            setNomeResponsavel(c.nomeResponsavel || null);
             setStep(3);
           }
+          // Se o contrato está VISUALIZADO mas sem URLs (preencheu formulário mas ZapSign não foi chamado)
+          else if (['VISUALIZADO', 'ASSINATURA_PARCIAL'].includes(c.status) && !c.patientSignUrl) {
+            // Paciente preencheu o formulário mas não chegou a enviar ao ZapSign
+            // Mostrar step 1 para ele poder prosseguir novamente
+            setStep(1);
+          }
         }
+      } catch (err) {
+        console.error('[Paciente] Erro ao carregar contrato:', err);
       }
       setLoading(false);
     }
