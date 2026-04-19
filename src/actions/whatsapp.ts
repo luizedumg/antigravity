@@ -125,3 +125,57 @@ export async function sendStatusNotification(data: {
     }
   });
 }
+
+/**
+ * Envia os links de assinatura da ZapSign via WhatsApp.
+ * Para contratos com responsável legal (menores), envia 1 mensagem com 2 links separados.
+ * Para contratos simples (adultos), envia 1 mensagem com 1 link.
+ */
+export async function sendWhatsAppSignatureLinks(data: {
+  patientWhatsApp: string;
+  patientName: string;
+  patientSignUrl: string;
+  responsavelSignUrl?: string | null;
+  nomeResponsavel?: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  const firstName = data.patientName.split(' ')[0];
+
+  let message: string;
+
+  if (data.responsavelSignUrl && data.nomeResponsavel) {
+    // ── MENSAGEM COM 2 LINKS (MENOR DE IDADE) ──
+    message =
+      `Olá, ${firstName}! 👋\n\n` +
+      `O contrato de cirurgia está pronto para assinatura.\n` +
+      `Cada pessoa deve clicar *APENAS* no seu link correspondente.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `✍️ *ASSINATURA DO PACIENTE*\n` +
+      `(${data.patientName})\n\n` +
+      `👉 ${data.patientSignUrl}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `👨‍👧 *ASSINATURA DO RESPONSÁVEL LEGAL*\n` +
+      `(${data.nomeResponsavel})\n\n` +
+      `👉 ${data.responsavelSignUrl}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `⚠️ *Atenção:* Cada link é individual e intransferível.\n` +
+      `Não clique no link da outra pessoa.\n\n` +
+      `📧 Na tela de assinatura, informe seu e-mail corretamente — é por ele que você receberá o token de validação.`;
+  } else {
+    // ── MENSAGEM COM 1 LINK (ADULTO) ──
+    message =
+      `Olá, ${firstName}! 👋\n\n` +
+      `O contrato de cirurgia está pronto para sua assinatura.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `✍️ *SUA ASSINATURA*\n\n` +
+      `👉 ${data.patientSignUrl}\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📧 Na tela de assinatura, informe seu e-mail corretamente — é por ele que você receberá o token de validação.`;
+  }
+
+  const result = await sendMessage(data.patientWhatsApp, message);
+  if (result.success) {
+    console.log(`[WhatsApp] ✅ Links de assinatura enviados para ${data.patientWhatsApp}`);
+  }
+  return result;
+}

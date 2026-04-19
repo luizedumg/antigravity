@@ -156,11 +156,15 @@ export async function sendToZapsign(contractId: string) {
     }
   }
 
-  // Atualiza banco com o Token do documento para o rastreamento posterior
+  // Atualiza banco com o Token do documento e URLs persistidas para rastreamento
   await prisma.contract.update({
     where: { id: contractId },
     data: { 
       zapsignToken: data.token,
+      patientSignUrl: chosenSigner.sign_url,
+      responsavelSignUrl: responsavelSignUrl,
+      nomeResponsavel: hasResponsavel ? nomeResponsavel : null,
+      signUrlsCreatedAt: new Date(),
       status: 'VISUALIZADO'
     }
   });

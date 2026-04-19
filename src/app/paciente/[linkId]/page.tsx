@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getContractByLink, updateContractData, getTemplateByName } from '@/actions/contracts';
+import { getContractByLink, updateContractData, getTemplateByName, getSignUrls } from '@/actions/contracts';
 import { generateDocumentHtmlPreview } from '@/actions/document';
 import { sendToZapsign } from '@/actions/zapsign';
 import { sendPatientAlerts } from '@/actions/alerts';
+import { sendWhatsAppSignatureLinks } from '@/actions/whatsapp';
 import { useParams } from 'next/navigation';
 
 export default function WizardPaciente() {
@@ -22,6 +23,8 @@ export default function WizardPaciente() {
   const [signUrl, setSignUrl] = useState<string>('');
   const [responsavelSignUrl, setResponsavelSignUrl] = useState<string | null>(null);
   const [nomeResponsavel, setNomeResponsavel] = useState<string | null>(null);
+  const [whatsAppSignSent, setWhatsAppSignSent] = useState(false);
+  const [urlsExpired, setUrlsExpired] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -31,10 +34,23 @@ export default function WizardPaciente() {
         const t = await getTemplateByName(c.surgeryType);
         if (t) setTemplate(t);
 
-        if (c.status === 'VISUALIZADO' || c.status === 'ASSINADO') {
-           // Já preenchido, pode pular etapas...
-           if (c.status === 'VISUALIZADO') setStep(3);
-           if (c.status === 'ASSINADO') setStep(4);
+        // Se o contrato já foi totalmente assinado ou salvo no Drive
+        if (['ASSINADO', 'DRIVE_OK'].includes(c.status)) {
+          setStep(4);
+        }
+        // Se o contrato já passou pelo ZapSign (tem URLs salvas), restaurar do banco
+        else if (['VISUALIZADO', 'ASSINATURA_PARCIAL'].includes(c.status) && c.id) {
+          const urls = await getSignUrls(c.id);
+          if (urls && urls.patientSignUrl) {
+            if (urls.expired) {
+              setUrlsExpired(true);
+            } else {
+              setSignUrl(urls.patientSignUrl);
+              setResponsavelSignUrl(urls.responsavelSignUrl);
+              setNomeResponsavel(urls.nomeResponsavel);
+            }
+            setStep(3);
+          }
         }
       }
       setLoading(false);
@@ -89,6 +105,24 @@ export default function WizardPaciente() {
         setNomeResponsavel(res.nomeResponsavel || 'Responsável Legal');
       }
       setStep(3);
+
+      // ── ENVIO AUTOMÁTICO DOS LINKS VIA WHATSAPP ──
+      // Envia os links de assinatura separados para o WhatsApp do paciente
+      if (contract.patientWhatsApp) {
+        sendWhatsAppSignatureLinks({
+          patientWhatsApp: contract.patientWhatsApp,
+          patientName: contract.patientName,
+          patientSignUrl: res.signUrl,
+          responsavelSignUrl: res.responsavelSignUrl,
+          nomeResponsavel: res.nomeResponsavel,
+        }).then(result => {
+          if (result.success) {
+            setWhatsAppSignSent(true);
+          } else {
+            console.error('[WhatsApp Auto] Falha ao enviar links:', result.error);
+          }
+        }).catch(err => console.error('[WhatsApp Auto] Erro:', err));
+      }
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Erro ao conectar com servidor de assinatura.");
@@ -201,48 +235,180 @@ export default function WizardPaciente() {
 
           {step === 3 && (
             <div style={{ animation: 'fadeIn 0.5s', textAlign: 'center', padding: '2rem 0' }}>
-              <div style={{ fontSize: '3rem', margin: '0 auto 1.5rem', background: 'rgba(37,99,235,0.1)', color: 'var(--primary)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🖋</div>
-              <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Quase lá!</h2>
-              <p style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '2rem' }}>
-                O documento já está pronto. Para dar validade jurídica, realize a assinatura criptografada pela plataforma segura ZapSign.
-              </p>
               
-              {/* ── LINK DO PACIENTE ── */}
-              <div style={{ padding: '1.5rem', border: '2px dashed var(--primary)', borderRadius: '16px', marginBottom: '1.5rem' }}>
-                <p style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem', color: 'var(--primary)' }}>
-                  ✍️ Assinatura do Paciente{responsavelSignUrl ? ' (Menor)' : ''}
-                </p>
-                <a href={signUrl || '#'} target="_blank" className="btn-primary" style={{ display: 'inline-flex', padding: '1rem 2rem', fontSize: '1.1rem' }}>
-                  Assinar como Paciente
-                </a>
-                <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', opacity: 0.6 }}>Abrirá na ZapSign em nova aba.</p>
-              </div>
+              {/* ── URLS EXPIRADAS ── */}
+              {urlsExpired ? (
+                <div>
+                  <div style={{ fontSize: '3rem', margin: '0 auto 1.5rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger, #ef4444)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⏰</div>
+                  <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--danger, #ef4444)' }}>Links Expirados</h2>
+                  <p style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '2rem' }}>
+                    Os links de assinatura expiraram (mais de 30 dias). Entre em contato com a clínica para gerar um novo contrato.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: '3rem', margin: '0 auto 1.5rem', background: 'rgba(37,99,235,0.1)', color: 'var(--primary)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🖋</div>
+                  <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Quase lá!</h2>
+                  <p style={{ fontSize: '1rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                    O documento já está pronto. Para dar validade jurídica, realize a assinatura criptografada pela plataforma segura ZapSign.
+                  </p>
 
-              {/* ── LINK DO RESPONSÁVEL (se menor de idade) ── */}
-              {responsavelSignUrl && (
-                <div style={{ padding: '1.5rem', border: '2px dashed var(--success)', borderRadius: '16px', marginBottom: '1.5rem', background: 'rgba(16,185,129,0.03)' }}>
-                  <p style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.75rem', color: 'var(--success)' }}>
-                    👨‍👧 Assinatura do Responsável Legal
+                  {/* ── AVISO: LINKS ENVIADOS AO WHATSAPP ── */}
+                  {whatsAppSignSent && (
+                    <div style={{
+                      margin: '1rem auto 2rem',
+                      padding: '0.75rem 1.25rem',
+                      background: 'rgba(37, 211, 102, 0.08)',
+                      border: '1px solid rgba(37, 211, 102, 0.25)',
+                      borderRadius: '12px',
+                      fontSize: '0.9rem',
+                      color: '#059669',
+                      maxWidth: '450px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      📱 Os links de assinatura também foram enviados ao seu WhatsApp!
+                    </div>
+                  )}
+
+                  {/* ── INSTRUÇÃO PARA MENOR ── */}
+                  {responsavelSignUrl && (
+                    <div style={{
+                      margin: '0 auto 2rem',
+                      padding: '1rem 1.25rem',
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      borderRadius: '12px',
+                      fontSize: '0.9rem',
+                      color: '#b45309',
+                      maxWidth: '500px',
+                      textAlign: 'center'
+                    }}>
+                      ⚠️ <strong>Atenção:</strong> Este contrato requer <strong>2 assinaturas separadas</strong>. Cada pessoa deve clicar <strong>apenas</strong> no seu botão correspondente abaixo.
+                    </div>
+                  )}
+                  
+                  {/* ── LINK DO PACIENTE ── */}
+                  <div style={{ 
+                    padding: '1.5rem', 
+                    border: '3px solid var(--primary)', 
+                    borderRadius: '16px', 
+                    marginBottom: '2rem',
+                    background: 'rgba(37,99,235,0.03)',
+                    position: 'relative'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: '-12px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'var(--primary)',
+                      color: 'white',
+                      padding: '0.25rem 1rem',
+                      borderRadius: '20px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                    }}>
+                      {responsavelSignUrl ? 'ASSINATURA 1 DE 2' : 'SUA ASSINATURA'}
+                    </div>
+                    <p style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.5rem', marginTop: '0.5rem', color: 'var(--primary)' }}>
+                      ✍️ Paciente
+                    </p>
+                    <p style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: '1rem' }}>
+                      {contract.patientName}
+                    </p>
+                    <a 
+                      href={signUrl || '#'} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="btn-primary" 
+                      style={{ 
+                        display: 'inline-flex', 
+                        padding: '1rem 2.5rem', 
+                        fontSize: '1.1rem',
+                        boxShadow: '0 4px 15px rgba(37,99,235,0.3)',
+                        textDecoration: 'none'
+                      }}
+                    >
+                      Assinar como Paciente →
+                    </a>
+                    <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', opacity: 0.5 }}>Abrirá na ZapSign em nova aba.</p>
+                  </div>
+
+                  {/* ── LINK DO RESPONSÁVEL (se menor de idade) ── */}
+                  {responsavelSignUrl && (
+                    <div style={{ 
+                      padding: '1.5rem', 
+                      border: '3px solid var(--success, #10b981)', 
+                      borderRadius: '16px', 
+                      marginBottom: '2rem', 
+                      background: 'rgba(16,185,129,0.03)',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '-12px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'var(--success, #10b981)',
+                        color: 'white',
+                        padding: '0.25rem 1rem',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.05em',
+                      }}>
+                        ASSINATURA 2 DE 2
+                      </div>
+                      <p style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.5rem', marginTop: '0.5rem', color: 'var(--success, #10b981)' }}>
+                        👨‍👧 Responsável Legal
+                      </p>
+                      <p style={{ fontSize: '0.9rem', opacity: 0.7, marginBottom: '1rem' }}>
+                        {nomeResponsavel}
+                      </p>
+                      <a 
+                        href={responsavelSignUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="btn-success" 
+                        style={{ 
+                          display: 'inline-flex', 
+                          padding: '1rem 2.5rem', 
+                          fontSize: '1.1rem',
+                          boxShadow: '0 4px 15px rgba(16,185,129,0.3)',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        Assinar como Responsável →
+                      </a>
+                      <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', opacity: 0.5 }}>Abrirá na ZapSign em nova aba.</p>
+                    </div>
+                  )}
+
+                  {/* ── NOTA SOBRE MÉDICO ── */}
+                  <p style={{ fontSize: '0.85rem', opacity: 0.5, marginBottom: '1.5rem', fontStyle: 'italic' }}>
+                    📧 O médico receberá automaticamente o link de assinatura por e-mail.
                   </p>
-                  <p style={{ fontSize: '0.9rem', opacity: 0.8, marginBottom: '1rem' }}>
-                    {nomeResponsavel}
-                  </p>
-                  <a href={responsavelSignUrl} target="_blank" className="btn-success" style={{ display: 'inline-flex', padding: '1rem 2rem', fontSize: '1.1rem' }}>
-                    Assinar como Responsável
-                  </a>
-                  <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', opacity: 0.6 }}>Abrirá na ZapSign em nova aba.</p>
+
+                  {/* ── NOTA SOBRE WHATSAPP ── */}
+                  <div style={{
+                    padding: '1rem',
+                    background: 'rgba(0,0,0,0.03)',
+                    borderRadius: '12px',
+                    fontSize: '0.85rem',
+                    opacity: 0.7,
+                    lineHeight: '1.6'
+                  }}>
+                    💡 <strong>Dica:</strong> Você pode fechar esta tela com segurança. {responsavelSignUrl 
+                      ? 'Os links de assinatura de ambas as partes foram enviados ao seu WhatsApp.' 
+                      : 'O link de assinatura foi enviado ao seu WhatsApp.'}
+                    <br />
+                    Basta abrir o WhatsApp e clicar no link correspondente a qualquer momento.
+                  </div>
                 </div>
               )}
-
-              {responsavelSignUrl && (
-                <p style={{ fontSize: '0.85rem', opacity: 0.6, marginBottom: '1.5rem', fontStyle: 'italic' }}>
-                  📧 O médico receberá automaticamente o link de assinatura por e-mail.
-                </p>
-              )}
-
-              <button className="btn-success" onClick={() => setStep(4)} style={{ width: '100%', padding: '1rem', marginTop: '1rem' }}>
-                {responsavelSignUrl ? 'AMBOS JÁ ASSINARAM' : 'EU JÁ ASSINEI NA ZAPSIGN'}
-              </button>
             </div>
           )}
 

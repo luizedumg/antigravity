@@ -16,8 +16,12 @@ model Contract {
   surgeryType     String
   status          String   @default("PENDENTE") // PENDENTE, ENVIADO, VISUALIZADO, ASSINATURA_PARCIAL, ASSINADO, DRIVE_OK, RECUSADO
   linkId          String?  @unique // unique link id to send via whatsapp
-  zapsignToken    String?  // ZapSign document token id
-  formData        String?  // JSON format for other dynamic inputs
+  zapsignToken      String?  // ZapSign document token id
+  patientSignUrl    String?  // URL ZapSign para assinatura do paciente
+  responsavelSignUrl String? // URL ZapSign para assinatura do responsável legal
+  nomeResponsavel   String?  // Nome do responsável legal (extraído do formulário)
+  signUrlsCreatedAt DateTime? // Quando as URLs foram geradas (expiram em 30 dias)
+  formData          String?  // JSON format for other dynamic inputs
   googleDriveFileId String? // ID do arquivo no Google Drive após upload
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

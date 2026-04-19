@@ -73,3 +73,29 @@ export async function updateContractStatusByLink(linkId: string, newStatus: stri
   });
   revalidatePath('/admin/historico');
 }
+
+/**
+ * Retorna as URLs de assinatura persistidas no banco.
+ * Respeita expiração de 30 dias: se passaram mais de 30 dias, retorna null.
+ */
+export async function getSignUrls(contractId: string) {
+  const contract = await prisma.contract.findUnique({ where: { id: contractId } });
+  if (!contract) return null;
+
+  // Verificar expiração de 30 dias
+  if (contract.signUrlsCreatedAt) {
+    const createdAt = new Date(contract.signUrlsCreatedAt);
+    const now = new Date();
+    const diffDays = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays > 30) {
+      return { expired: true, patientSignUrl: null, responsavelSignUrl: null, nomeResponsavel: null };
+    }
+  }
+
+  return {
+    expired: false,
+    patientSignUrl: contract.patientSignUrl || null,
+    responsavelSignUrl: contract.responsavelSignUrl || null,
+    nomeResponsavel: contract.nomeResponsavel || null,
+  };
+}
