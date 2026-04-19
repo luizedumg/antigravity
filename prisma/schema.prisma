@@ -11,6 +11,7 @@ model Contract {
   id              String   @id @default(uuid())
   patientName     String
   patientCpf      String
+  patientWhatsApp String?  // Número completo internacional (ex: 5531999887766)
   patientAddress  String
   surgeryType     String
   status          String   @default("PENDENTE") // PENDENTE, VISUALIZADO, ASSINADO

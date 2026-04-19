@@ -11,6 +11,7 @@ type Contract = {
   id: string;
   patientName: string;
   patientCpf: string;
+  patientWhatsApp: string | null;
   surgeryType: string;
   status: string;
   linkId: string | null;
@@ -18,6 +19,20 @@ type Contract = {
   googleDriveFileId: string | null;
   createdAt: Date;
 };
+
+function formatWhatsApp(num: string): string {
+  if (!num || num.length < 10) return num || '';
+  // Tenta formatar como brasileiro: +55 (31) 99988-7766
+  if (num.startsWith('55') && num.length >= 12) {
+    const ddd = num.slice(2, 4);
+    const phone = num.slice(4);
+    const formatted = phone.length === 9
+      ? `${phone.slice(0, 5)}-${phone.slice(5)}`
+      : `${phone.slice(0, 4)}-${phone.slice(4)}`;
+    return `+55 (${ddd}) ${formatted}`;
+  }
+  return `+${num}`;
+}
 
 export default function HistoricoPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -185,7 +200,11 @@ export default function HistoricoPage() {
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{contract.patientName}</h3>
                   <p style={{ margin: '0.25rem 0 0 0', opacity: 0.7, fontSize: '0.9rem' }}>
-                    CPF: {contract.patientCpf} &nbsp;|&nbsp; {contract.surgeryType} &nbsp;|&nbsp; {formatDate(contract.createdAt)}
+                    {contract.patientWhatsApp 
+                      ? <>📱 {formatWhatsApp(contract.patientWhatsApp)}</>
+                      : contract.patientCpf ? <>CPF: {contract.patientCpf}</> : null
+                    }
+                    &nbsp;|&nbsp; {contract.surgeryType} &nbsp;|&nbsp; {formatDate(contract.createdAt)}
                   </p>
                 </div>
                 {getStatusBadge(contract.status)}

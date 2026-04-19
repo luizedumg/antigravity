@@ -11,12 +11,13 @@ export async function getTemplateByName(name: string) {
 }
 
 // Quando o admin (cirurgião) criar um link
-export async function createContractDraft(data: { patientName: string, patientCpf: string, surgeryType: string }) {
+export async function createContractDraft(data: { patientName: string, patientWhatsApp: string, surgeryType: string }) {
   const linkId = crypto.randomUUID();
   const contract = await prisma.contract.create({
     data: {
       patientName: data.patientName,
-      patientCpf: data.patientCpf,
+      patientCpf: "",  // Campo legado mantido para compatibilidade com contratos antigos
+      patientWhatsApp: data.patientWhatsApp,
       surgeryType: data.surgeryType,
       patientAddress: "", // Preenchido depois pelo paciente
       linkId,
