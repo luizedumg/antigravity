@@ -8,7 +8,14 @@ import { revalidatePath } from 'next/cache';
 import { GoogleGenAI } from '@google/genai';
 import { getApiKeyForProvider } from './apikeys';
 
+const ADMIN_PIN = '1986';
+
 export async function uploadTemplateDocx(formData: FormData) {
+  const pin = (formData.get('pin') as string) || '';
+  if (pin !== ADMIN_PIN) {
+    throw new Error('Senha incorreta. Operação não autorizada.');
+  }
+
   const file = formData.get('file') as File;
   const name = formData.get('name') as string;
   let apiKey = (formData.get('apiKey') as string) || '';

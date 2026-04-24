@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadTemplateDocx } from '@/actions/upload';
 import { getApiKeyStatus, saveApiKey, deleteApiKey } from '@/actions/apikeys';
@@ -20,6 +20,13 @@ export default function NovoTemplate() {
   const [usingSavedKey, setUsingSavedKey] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const router = useRouter();
+
+  // PIN modal state
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
+  const pinInputRef = useRef<HTMLInputElement>(null);
 
   // Modelos REAIS disponíveis em cada provedor (abril 2026)
   const modelsByProvider: Record<string, string[]> = {
@@ -60,6 +67,13 @@ export default function NovoTemplate() {
     });
   }, []);
 
+  // Focus PIN input when modal opens
+  useEffect(() => {
+    if (showPinModal && pinInputRef.current) {
+      pinInputRef.current.focus();
+    }
+  }, [showPinModal]);
+
   const handleProviderChange = (prov: string) => {
     setAiProvider(prov);
     setAiModel(modelsByProvider[prov][0]);
@@ -86,23 +100,41 @@ export default function NovoTemplate() {
     setUsingSavedKey(false);
   };
 
-  const handleCreate = async () => {
+  // Step 1: validate fields, then show PIN modal
+  const handleCreateClick = () => {
     if (!name || !file) {
       return alert("Preencha o nome da cirurgia e anexe o arquivo .docx");
     }
-    setLoading(true);
+    setShowPinModal(true);
+    setPinInput('');
+    setPinError(false);
+  };
+
+  const closePinModal = () => {
+    setShowPinModal(false);
+    setPinInput('');
+    setPinError(false);
+    setPinLoading(false);
+  };
+
+  // Step 2: validate PIN and create template
+  const handlePinSubmit = async () => {
+    if (!pinInput) return;
+
+    setPinLoading(true);
+    setPinError(false);
+
     try {
       const formData = new FormData();
       formData.append('name', name);
-      formData.append('file', file);
+      formData.append('file', file!);
+      formData.append('pin', pinInput);
       
       if (apiKey) {
-        // Usando chave digitada agora
         formData.append('apiKey', apiKey);
         formData.append('aiProvider', aiProvider);
         formData.append('aiModel', aiModel);
       } else if (usingSavedKey && keyStatus[aiProvider]?.exists) {
-        // Usando chave salva — enviar flag para o servidor buscar do banco
         formData.append('useSavedKey', 'true');
         formData.append('aiProvider', aiProvider);
         formData.append('aiModel', aiModel);
@@ -110,11 +142,28 @@ export default function NovoTemplate() {
 
       const res = await uploadTemplateDocx(formData);
       
+      closePinModal();
       alert(`Modelo cadastrado com sucesso! Encontramos ${res.customTagsFound} chaves dinâmicas no documento.`);
       router.push('/admin/templates');
     } catch (err: any) {
-      alert("Erro ao enviar o documento: " + err.message);
-      setLoading(false);
+      if (err.message?.includes('Senha incorreta')) {
+        setPinError(true);
+        setPinLoading(false);
+        setPinInput('');
+        setTimeout(() => pinInputRef.current?.focus(), 100);
+      } else {
+        closePinModal();
+        alert("Erro ao enviar o documento: " + err.message);
+        setLoading(false);
+      }
+    }
+  };
+
+  const handlePinKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handlePinSubmit();
+    } else if (e.key === 'Escape') {
+      closePinModal();
     }
   };
 
@@ -283,14 +332,104 @@ export default function NovoTemplate() {
         </div>
 
         <div style={{ marginTop: '3rem', display: 'flex', gap: '1rem' }}>
-          <button onClick={handleCreate} disabled={loading} className="btn-primary" style={{ flex: 1 }}>
-            {loading ? 'Lendo Arquivo e Usando IA...' : 'Analisar e Salvar Modelo'}
+          <button onClick={handleCreateClick} disabled={loading || pinLoading} className="btn-primary" style={{ flex: 1 }}>
+            {loading || pinLoading ? 'Lendo Arquivo e Usando IA...' : '🔒 Analisar e Salvar Modelo'}
           </button>
           <Link href="/admin/templates" className="btn-secondary">
             Cancelar
           </Link>
         </div>
       </div>
+
+      {/* ═══════ MODAL DE SENHA PARA CRIAÇÃO ═══════ */}
+      {showPinModal && (
+        <div
+          onClick={closePinModal}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(6px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="animate-fade-in"
+            style={{
+              background: 'var(--glass-bg)', backdropFilter: 'blur(20px)',
+              borderRadius: '16px', maxWidth: '420px', width: '100%',
+              padding: '2.5rem', boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+              border: '1px solid var(--glass-border)', color: 'var(--foreground)',
+              textAlign: 'center'
+            }}
+          >
+            {/* Lock icon */}
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
+              background: 'rgba(37, 99, 235, 0.1)', border: '2px solid rgba(37, 99, 235, 0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.5rem', fontSize: '1.8rem'
+            }}>
+              🔒
+            </div>
+
+            <h2 style={{ color: 'var(--primary)', margin: '0 0 0.5rem', fontSize: '1.3rem' }}>
+              Criação Protegida
+            </h2>
+            <p style={{ opacity: 0.7, fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Para criar o modelo <strong>&quot;{name}&quot;</strong>, 
+              digite a senha de administrador.
+            </p>
+
+            <div style={{ position: 'relative' }}>
+              <input
+                ref={pinInputRef}
+                type="password"
+                className="input-field"
+                value={pinInput}
+                onChange={e => { setPinInput(e.target.value); setPinError(false); }}
+                onKeyDown={handlePinKeyDown}
+                placeholder="Digite a senha..."
+                maxLength={10}
+                style={{
+                  textAlign: 'center',
+                  fontSize: '1.2rem',
+                  letterSpacing: '0.3em',
+                  fontWeight: 600,
+                  borderColor: pinError ? 'var(--danger)' : undefined,
+                  animation: pinError ? 'shake 0.4s ease' : undefined,
+                }}
+              />
+            </div>
+
+            {pinError && (
+              <p style={{
+                color: 'var(--danger)', fontSize: '0.85rem', marginTop: '0.75rem',
+                fontWeight: 500, animation: 'fadeIn 0.3s ease'
+              }}>
+                ❌ Senha incorreta. Tente novamente.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button
+                onClick={closePinModal}
+                className="btn-secondary"
+                style={{ flex: 1 }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePinSubmit}
+                disabled={!pinInput || pinLoading}
+                className="btn-primary"
+                style={{ flex: 1 }}
+              >
+                {pinLoading ? 'Processando...' : 'Confirmar Criação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══════ MODAL DE AJUDA ═══════ */}
       {showHelp && (

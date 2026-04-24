@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getTemplates, deleteTemplate } from '@/actions/templates';
 
 type Template = {
@@ -17,6 +17,13 @@ export default function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // PIN modal state
+  const [pinModalTarget, setPinModalTarget] = useState<string | null>(null); // template id to delete
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
+  const pinInputRef = useRef<HTMLInputElement>(null);
+
   const loadTemplates = async () => {
     const data = await getTemplates();
     setTemplates(data as Template[]);
@@ -27,13 +34,53 @@ export default function TemplatesPage() {
     loadTemplates();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    const confirmado = window.confirm('Tem certeza que deseja excluir este modelo? Contratos existentes que usam este modelo podem ser afetados.');
-    if (!confirmado) return;
-    setDeletingId(id);
-    await deleteTemplate(id);
-    await loadTemplates();
-    setDeletingId(null);
+  // Focus PIN input when modal opens
+  useEffect(() => {
+    if (pinModalTarget && pinInputRef.current) {
+      pinInputRef.current.focus();
+    }
+  }, [pinModalTarget]);
+
+  const openPinModal = (id: string) => {
+    setPinModalTarget(id);
+    setPinInput('');
+    setPinError(false);
+  };
+
+  const closePinModal = () => {
+    setPinModalTarget(null);
+    setPinInput('');
+    setPinError(false);
+    setPinLoading(false);
+  };
+
+  const handlePinSubmit = async () => {
+    if (!pinModalTarget || !pinInput) return;
+
+    setPinLoading(true);
+    setPinError(false);
+
+    try {
+      setDeletingId(pinModalTarget);
+      await deleteTemplate(pinModalTarget, pinInput);
+      closePinModal();
+      await loadTemplates();
+    } catch {
+      setPinError(true);
+      setPinLoading(false);
+      setDeletingId(null);
+      setPinInput('');
+      // Re-focus input after error
+      setTimeout(() => pinInputRef.current?.focus(), 100);
+    }
+  };
+
+  const handlePinKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handlePinSubmit();
+    } else if (e.key === 'Escape') {
+      closePinModal();
+    }
   };
 
   const parseQuestions = (json: string) => {
@@ -87,12 +134,12 @@ export default function TemplatesPage() {
                         {isExpanded ? '▲ Fechar' : '▼ Ver Perguntas'}
                       </button>
                       <button
-                        onClick={() => handleDelete(t.id)}
+                        onClick={() => openPinModal(t.id)}
                         disabled={deletingId === t.id}
                         className="btn-danger"
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', minHeight: 'auto' }}
                       >
-                        {deletingId === t.id ? '...' : 'Excluir'}
+                        {deletingId === t.id ? '...' : '🔒 Excluir'}
                       </button>
                     </div>
                   </div>
@@ -139,6 +186,96 @@ export default function TemplatesPage() {
           </Link>
         </div>
       </div>
+
+      {/* ═══════ MODAL DE SENHA PARA EXCLUSÃO ═══════ */}
+      {pinModalTarget && (
+        <div
+          onClick={closePinModal}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(6px)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="animate-fade-in"
+            style={{
+              background: 'var(--glass-bg)', backdropFilter: 'blur(20px)',
+              borderRadius: '16px', maxWidth: '420px', width: '100%',
+              padding: '2.5rem', boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+              border: '1px solid var(--glass-border)', color: 'var(--foreground)',
+              textAlign: 'center'
+            }}
+          >
+            {/* Lock icon */}
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.1)', border: '2px solid rgba(239, 68, 68, 0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.5rem', fontSize: '1.8rem'
+            }}>
+              🔒
+            </div>
+
+            <h2 style={{ color: 'var(--danger)', margin: '0 0 0.5rem', fontSize: '1.3rem' }}>
+              Exclusão Protegida
+            </h2>
+            <p style={{ opacity: 0.7, fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Para excluir o modelo <strong>&quot;{templates.find(t => t.id === pinModalTarget)?.name}&quot;</strong>, 
+              digite a senha de administrador.
+            </p>
+
+            <div style={{ position: 'relative' }}>
+              <input
+                ref={pinInputRef}
+                type="password"
+                className="input-field"
+                value={pinInput}
+                onChange={e => { setPinInput(e.target.value); setPinError(false); }}
+                onKeyDown={handlePinKeyDown}
+                placeholder="Digite a senha..."
+                maxLength={10}
+                style={{
+                  textAlign: 'center',
+                  fontSize: '1.2rem',
+                  letterSpacing: '0.3em',
+                  fontWeight: 600,
+                  borderColor: pinError ? 'var(--danger)' : undefined,
+                  animation: pinError ? 'shake 0.4s ease' : undefined,
+                }}
+              />
+            </div>
+
+            {pinError && (
+              <p style={{
+                color: 'var(--danger)', fontSize: '0.85rem', marginTop: '0.75rem',
+                fontWeight: 500, animation: 'fadeIn 0.3s ease'
+              }}>
+                ❌ Senha incorreta. Tente novamente.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button
+                onClick={closePinModal}
+                className="btn-secondary"
+                style={{ flex: 1 }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePinSubmit}
+                disabled={!pinInput || pinLoading}
+                className="btn-danger"
+                style={{ flex: 1 }}
+              >
+                {pinLoading ? 'Excluindo...' : 'Confirmar Exclusão'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
