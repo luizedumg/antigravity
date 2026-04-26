@@ -3,7 +3,7 @@ import BudgetList from "./BudgetList";
 import GlobalValueCard from "./GlobalValueCard";
 import WebhookTestCard from "./WebhookTestCard";
 import Link from "next/link";
-import { Plus, Settings2 } from "lucide-react";
+import { Plus, Settings2, Home } from "lucide-react";
 
 export default async function OrcamentosDashboard() {
   const res = await getBudgets();
@@ -14,6 +14,16 @@ export default async function OrcamentosDashboard() {
 
   return (
     <main className="container" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      
+      {/* Botão Home */}
+      <Link href="/" style={{ 
+        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+        opacity: 0.5, fontSize: '0.85rem', color: 'inherit', textDecoration: 'none',
+        transition: 'opacity 0.2s', marginTop: '0.5rem',
+      }}>
+        <Home size={16} />
+        Início
+      </Link>
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>

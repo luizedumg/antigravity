@@ -1,120 +1,92 @@
 import Link from "next/link";
-import { getDashboardMetrics } from "@/actions/historico";
 import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const metrics = await getDashboardMetrics();
-
   return (
-    <main className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <main className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
       
-      {/* LOGO AREA - Centralizada acima do painel principal */}
-      <div style={{ marginTop: '5vh', marginBottom: '1rem', textAlign: 'center' }}>
-         <img 
-            src="/logo.png" 
-            alt="Logotipo L.E.M. Luiz Eduardo Mamede" 
-            style={{ maxHeight: '110px', objectFit: 'contain' }} 
-         />
+      {/* LOGO */}
+      <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+        <img 
+          src="/logo.png" 
+          alt="Logotipo L.E.M. Luiz Eduardo Mamede" 
+          style={{ maxHeight: '110px', objectFit: 'contain' }} 
+        />
       </div>
 
-      <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', textAlign: 'center', width: '100%', maxWidth: '1000px' }}>
+      <div className="glass-panel animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', textAlign: 'center', width: '100%', maxWidth: '900px' }}>
         <div>
           <h1 style={{ fontSize: '2.5rem', background: 'linear-gradient(45deg, var(--primary), #38bdf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Central de Contratos Médicos
+            Painel Administrativo
           </h1>
-          <p style={{ fontSize: '1.2rem', opacity: 0.8 }}>
-            Gerencie, gere e envie contratos para assinatura com validade jurídica de forma automatizada.
+          <p style={{ fontSize: '1.1rem', opacity: 0.7, marginTop: '0.5rem' }}>
+            Selecione o módulo que deseja acessar.
           </p>
         </div>
 
-        {/* ══════ MÉTRICAS EM TEMPO REAL ══════ */}
-        <div className="metrics-grid" style={{ width: '100%' }}>
-          <div className="metric-card">
-            <div className="metric-icon" style={{ background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)' }}>📄</div>
-            <div className="metric-info">
-              <span className="metric-value">{metrics.total}</span>
-              <span className="metric-label">Total de Contratos</span>
-            </div>
-          </div>
-
-          <div className="metric-card">
-            <div className="metric-icon" style={{ background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)' }}>⏳</div>
-            <div className="metric-info">
-              <span className="metric-value">{metrics.pendentes}</span>
-              <span className="metric-label">Pendentes</span>
-            </div>
-          </div>
-
-          <div className="metric-card">
-            <div className="metric-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)' }}>👁️</div>
-            <div className="metric-info">
-              <span className="metric-value">{metrics.visualizados}</span>
-              <span className="metric-label">Aguardando Assinatura</span>
-            </div>
-          </div>
-
-          <div className="metric-card">
-            <div className="metric-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>✅</div>
-            <div className="metric-info">
-              <span className="metric-value">{metrics.assinados}</span>
-              <span className="metric-label">Assinados</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ══════ CARDS DE AÇÃO ══════ */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', width: '100%' }}>
+        {/* CARDS DE MÓDULOS */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', width: '100%' }}>
           
-          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>Novo Link / Paciente</h2>
-              <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Gere um formulário Wizard para encaminhar ao WhatsApp do paciente e recolher os dados.</p>
+          {/* Card: Contratos */}
+          <Link href="/admin/contratos" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="glass-panel" style={{ 
+              cursor: 'pointer', transition: 'all 0.3s ease', padding: '2.5rem 2rem', 
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1.5rem',
+              minHeight: '280px', justifyContent: 'center',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}>
+              <div style={{ 
+                width: '80px', height: '80px', borderRadius: '20px', 
+                background: 'linear-gradient(135deg, rgba(37,99,235,0.2), rgba(37,99,235,0.05))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem',
+              }}>
+                📝
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem' }}>Contratos Cirúrgicos</h2>
+                <p style={{ fontSize: '0.95rem', opacity: 0.6, lineHeight: 1.5 }}>
+                  Gere, envie e gerencie contratos com assinatura digital e validade jurídica.
+                </p>
+              </div>
+              <span className="btn-primary" style={{ width: '100%', display: 'inline-block', pointerEvents: 'none' }}>
+                Acessar Contratos
+              </span>
             </div>
-            <Link href="/admin/novo" className="btn-primary" style={{ width: '100%', display: 'inline-block' }}>
-              Gerar Link
-            </Link>
-          </div>
+          </Link>
 
-          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>Histórico</h2>
-              <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Visualize contratos gerados, assinaturas pendentes e filtros por cirurgia.</p>
+          {/* Card: Orçamentos */}
+          <Link href="/admin/orcamentos" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="glass-panel" style={{ 
+              cursor: 'pointer', transition: 'all 0.3s ease', padding: '2.5rem 2rem', 
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1.5rem',
+              minHeight: '280px', justifyContent: 'center',
+              border: '1px solid rgba(56,189,248,0.2)',
+              background: 'linear-gradient(135deg, rgba(37,99,235,0.08), rgba(56,189,248,0.04))',
+            }}>
+              <div style={{ 
+                width: '80px', height: '80px', borderRadius: '20px', 
+                background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(56,189,248,0.05))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem',
+              }}>
+                💰
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '0.5rem' }}>Orçamentos Cirúrgicos</h2>
+                <p style={{ fontSize: '0.95rem', opacity: 0.6, lineHeight: 1.5 }}>
+                  Gere propostas premium com envio automático via WhatsApp e E-mail.
+                </p>
+              </div>
+              <span className="btn-primary" style={{ width: '100%', display: 'inline-block', pointerEvents: 'none', background: 'linear-gradient(135deg, var(--primary), #38bdf8)' }}>
+                Acessar Orçamentos
+              </span>
             </div>
-            <Link href="/admin/historico" className="btn-primary" style={{ width: '100%', display: 'inline-block' }}>
-              Ver Contratos
-            </Link>
-          </div>
-
-          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>Modelos de Cirurgia</h2>
-              <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Configure as perguntas dinâmicas e o template .docx para cada tipo de cirurgia.</p>
-            </div>
-            <Link href="/admin/templates" className="btn-primary" style={{ width: '100%', display: 'inline-block' }}>
-              Configurar Templates
-            </Link>
-          </div>
-
-          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, rgba(37,99,235,0.15), rgba(56,189,248,0.1))', border: '1px solid rgba(37,99,235,0.3)' }}>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '1.5rem', color: '#38bdf8' }}>💰 Orçamentos</h2>
-              <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Gere propostas cirúrgicas premium com envio automático via WhatsApp e E-mail.</p>
-            </div>
-            <Link href="/admin/orcamentos" className="btn-primary" style={{ width: '100%', display: 'inline-block', background: 'linear-gradient(135deg, var(--primary), #38bdf8)' }}>
-              Abrir Gerador de Orçamentos
-            </Link>
-          </div>
+          </Link>
 
         </div>
 
-        {/* ══════ RODAPÉ COM TEMPLATE COUNT ══════ */}
-        <div style={{ opacity: 0.6, fontSize: '0.85rem', marginTop: '1rem' }}>
-          {metrics.templates} modelo(s) de cirurgia cadastrado(s)
-        </div>
-
-        {/* ══════ LOGOUT ══════ */}
+        {/* LOGOUT */}
         <LogoutButton />
       </div>
     </main>
