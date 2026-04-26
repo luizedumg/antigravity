@@ -22,6 +22,23 @@ async function getDocumentDetails(docToken: string) {
   }
 }
 
+/**
+ * Hierarquia de status — um status só pode avançar, nunca retroceder.
+ * Isso previne reprocessamento quando múltiplos webhooks chegam para o mesmo evento.
+ */
+const STATUS_ORDER = ['PENDENTE', 'ENVIADO', 'VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO', 'DRIVE_OK'];
+
+function canTransition(currentStatus: string, newStatus: string): boolean {
+  // RECUSADO pode vir de qualquer status
+  if (newStatus === 'RECUSADO') return currentStatus !== 'RECUSADO';
+  
+  const currentIdx = STATUS_ORDER.indexOf(currentStatus);
+  const newIdx = STATUS_ORDER.indexOf(newStatus);
+  
+  // Só avança, nunca retrocede ou repete
+  return newIdx > currentIdx;
+}
+
 export async function POST(req: Request) {
   try {
     const payload = await req.json();
@@ -65,7 +82,7 @@ export async function POST(req: Request) {
       // ── Documento visualizado pelo signatário ──
       case 'doc_viewed':
       case 'doc_read_confirmation': {
-        if (['PENDENTE', 'ENVIADO'].includes(contract.status)) {
+        if (canTransition(contract.status, 'VISUALIZADO')) {
           await prisma.contract.update({
             where: { id: contractId },
             data: { status: 'VISUALIZADO' }
@@ -77,6 +94,8 @@ export async function POST(req: Request) {
           });
           
           console.log(`[Webhook] 👁️ Contrato ${contractId} → VISUALIZADO`);
+        } else {
+          console.log(`[Webhook] ⏭️ Ignorado: ${contract.status} → VISUALIZADO (já processado)`);
         }
         break;
       }
@@ -98,24 +117,28 @@ export async function POST(req: Request) {
           
           if (allSigned) {
             // ── TOTALMENTE ASSINADO ──
-            await prisma.contract.update({
-              where: { id: contractId },
-              data: { status: 'ASSINADO' }
-            });
+            if (canTransition(contract.status, 'ASSINADO')) {
+              await prisma.contract.update({
+                where: { id: contractId },
+                data: { status: 'ASSINADO' }
+              });
 
-            console.log(`[Webhook] ✅ Contrato ${contractId} → ASSINADO (todas as partes)`);
+              console.log(`[Webhook] ✅ Contrato ${contractId} → ASSINADO (todas as partes)`);
 
-            await sendStatusNotification({
-              patientName, surgeryType,
-              event: 'ASSINADO'
-            });
+              await sendStatusNotification({
+                patientName, surgeryType,
+                event: 'ASSINADO'
+              });
 
-            // ── UPLOAD AUTOMÁTICO PARA O GOOGLE DRIVE ──
-            await handleDriveUpload(contractId, patientName, surgeryType);
+              // ── UPLOAD AUTOMÁTICO PARA O GOOGLE DRIVE ──
+              await handleDriveUpload(contractId, patientName, surgeryType);
+            } else {
+              console.log(`[Webhook] ⏭️ Ignorado: ${contract.status} → ASSINADO (já processado)`);
+            }
 
           } else {
             // ── ASSINATURA PARCIAL ──
-            if (!['ASSINADO', 'DRIVE_OK'].includes(contract.status)) {
+            if (canTransition(contract.status, 'ASSINATURA_PARCIAL')) {
               await prisma.contract.update({
                 where: { id: contractId },
                 data: { status: 'ASSINATURA_PARCIAL' }
@@ -128,13 +151,15 @@ export async function POST(req: Request) {
                 event: 'ASSINATURA_PARCIAL',
                 signerName: signerDisplayName
               });
+            } else {
+              console.log(`[Webhook] ⏭️ Ignorado: ${contract.status} → ASSINATURA_PARCIAL (já processado)`);
             }
           }
         } else {
           // Fallback se a API estiver indisponível: tratar como parcial
           console.log(`[Webhook] ⚠️ Não conseguiu consultar API, tratando como assinatura parcial`);
           
-          if (!['ASSINADO', 'DRIVE_OK', 'ASSINATURA_PARCIAL'].includes(contract.status)) {
+          if (canTransition(contract.status, 'ASSINATURA_PARCIAL')) {
             await prisma.contract.update({
               where: { id: contractId },
               data: { status: 'ASSINATURA_PARCIAL' }
@@ -153,7 +178,7 @@ export async function POST(req: Request) {
       // ── Documento completamente finalizado (evento alternativo da ZapSign) ──
       case 'doc_completed':
       case 'doc_finalized': {
-        if (!['ASSINADO', 'DRIVE_OK'].includes(contract.status)) {
+        if (canTransition(contract.status, 'ASSINADO')) {
           await prisma.contract.update({
             where: { id: contractId },
             data: { status: 'ASSINADO' }
@@ -167,6 +192,8 @@ export async function POST(req: Request) {
           });
 
           await handleDriveUpload(contractId, patientName, surgeryType);
+        } else {
+          console.log(`[Webhook] ⏭️ Ignorado: ${contract.status} → ASSINADO via ${eventType} (já processado)`);
         }
         break;
       }
@@ -174,18 +201,22 @@ export async function POST(req: Request) {
       // ── Documento recusado ──
       case 'doc_refused':
       case 'signer_refused': {
-        await prisma.contract.update({
-          where: { id: contractId },
-          data: { status: 'RECUSADO' }
-        });
+        if (canTransition(contract.status, 'RECUSADO')) {
+          await prisma.contract.update({
+            where: { id: contractId },
+            data: { status: 'RECUSADO' }
+          });
 
-        console.log(`[Webhook] ❌ Contrato ${contractId} → RECUSADO por ${signerName}`);
+          console.log(`[Webhook] ❌ Contrato ${contractId} → RECUSADO por ${signerName}`);
 
-        await sendStatusNotification({
-          patientName, surgeryType,
-          event: 'RECUSADO',
-          signerName
-        });
+          await sendStatusNotification({
+            patientName, surgeryType,
+            event: 'RECUSADO',
+            signerName
+          });
+        } else {
+          console.log(`[Webhook] ⏭️ Ignorado: já estava RECUSADO`);
+        }
         break;
       }
 
@@ -203,12 +234,19 @@ export async function POST(req: Request) {
 
 /**
  * Faz o upload do PDF assinado para o Google Drive com retry.
+ * Inclui guard de idempotência para evitar uploads duplicados.
  */
 async function handleDriveUpload(contractId: string, patientName: string, surgeryType: string) {
   // Recarregar o contrato para verificar se já não foi feito
   const freshContract = await prisma.contract.findUnique({ where: { id: contractId } });
   if (freshContract?.googleDriveFileId) {
-    console.log(`[Webhook] Drive upload já existe, ignorando`);
+    console.log(`[Webhook] ⏭️ Drive upload já existe (${freshContract.googleDriveFileId}), ignorando`);
+    return;
+  }
+
+  // Guard extra: se o status já é DRIVE_OK, outro processo já tratou
+  if (freshContract?.status === 'DRIVE_OK') {
+    console.log(`[Webhook] ⏭️ Status já é DRIVE_OK, ignorando upload`);
     return;
   }
 
@@ -220,6 +258,13 @@ async function handleDriveUpload(contractId: string, patientName: string, surger
     const result = await uploadSignedPdfToDrive(contractId);
     
     if (result.success) {
+      // Verificar mais uma vez antes de atualizar (race condition protection)
+      const checkAgain = await prisma.contract.findUnique({ where: { id: contractId } });
+      if (checkAgain?.status === 'DRIVE_OK') {
+        console.log(`[Webhook] ⏭️ Outro processo já atualizou para DRIVE_OK`);
+        return;
+      }
+
       await prisma.contract.update({
         where: { id: contractId },
         data: { status: 'DRIVE_OK' }
@@ -237,6 +282,13 @@ async function handleDriveUpload(contractId: string, patientName: string, surger
       // Retry após 15 segundos
       await new Promise(resolve => setTimeout(resolve, 15000));
       
+      // Verificar se outro processo já resolveu
+      const preRetry = await prisma.contract.findUnique({ where: { id: contractId } });
+      if (preRetry?.status === 'DRIVE_OK' || preRetry?.googleDriveFileId) {
+        console.log(`[Webhook] ⏭️ Outro processo já fez upload no Drive durante o retry`);
+        return;
+      }
+
       const retry = await uploadSignedPdfToDrive(contractId);
       if (retry.success) {
         await prisma.contract.update({
