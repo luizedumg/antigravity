@@ -3,19 +3,23 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-export default function DeleteButton({ contractId, deleteAction }: { contractId: string, deleteAction: (id: string) => Promise<void> }) {
+export default function DeleteButton({ contractId, deleteAction }: { contractId: string, deleteAction: (id: string, pin: string) => Promise<void> }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleDelete = async () => {
-    const pin = window.prompt("Para excluir este contrato (e evitar perdas acidentais de dados de pacientes), digite a senha de segurança (0405):");
+    const pin = window.prompt("Para excluir este contrato, digite o PIN de segurança:");
     
-    if (pin === '0405') {
+    if (pin) {
       setLoading(true);
-      await deleteAction(contractId);
-      router.refresh(); // atualiza a página servidor
-    } else if (pin !== null) {
-      alert("Senha incorreta. A exclusão foi cancelada.");
+      try {
+        await deleteAction(contractId, pin);
+        router.refresh();
+      } catch (e: any) {
+        alert(e.message || "PIN incorreto. A exclusão foi cancelada.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

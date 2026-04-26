@@ -101,14 +101,16 @@ export default function HistoricoPage() {
     const confirmed = window.confirm('⚠️ Atenção!\n\nVocê está prestes a excluir este contrato permanentemente.\nEssa ação não pode ser desfeita.\n\nDeseja continuar?');
     if (!confirmed) return;
     
-    const pin = window.prompt('Digite a senha de exclusão para confirmar:');
-    if (pin === '1986') {
+    const pin = window.prompt('Digite o PIN de segurança para confirmar:');
+    if (pin) {
       setDeletingId(id);
-      await deleteContractById(id);
-      await loadContracts();
+      try {
+        await deleteContractById(id, pin);
+        await loadContracts();
+      } catch (e: any) {
+        alert(e.message || 'PIN incorreto. A exclusão foi cancelada.');
+      }
       setDeletingId(null);
-    } else if (pin !== null) {
-      alert('Senha incorreta. A exclusão foi cancelada.');
     }
   };
 

@@ -97,7 +97,7 @@ export async function updateBudgetStatus(id: string, status: string, shouldReval
 
 export async function deleteBudget(id: string, pin: string) {
   try {
-    if (pin !== "1981") {
+    if (pin !== "1986") {
       return { success: false, error: "PIN incorreto. Ação não autorizada." };
     }
 

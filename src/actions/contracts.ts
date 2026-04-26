@@ -51,7 +51,10 @@ export async function getContractByLink(linkId: string) {
     where: { linkId }
   });
 }
-export async function deleteContractById(id: string) {
+export async function deleteContractById(id: string, pin?: string) {
+  if (pin !== "1986") {
+    throw new Error("PIN incorreto. Ação não autorizada.");
+  }
   await prisma.contract.delete({ where: { id } });
   revalidatePath('/admin/historico');
 }
