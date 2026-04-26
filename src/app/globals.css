@@ -521,3 +521,21 @@ select.input-field option {
     font-size: 1.5rem !important;
   }
 }
+
+/* ══════ BUDGET LIST RESPONSIVE ══════ */
+.budget-table-desktop {
+  display: block;
+  overflow-x: auto;
+}
+.budget-cards-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .budget-table-desktop {
+    display: none;
+  }
+  .budget-cards-mobile {
+    display: block;
+  }
+}

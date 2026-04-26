@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { deleteBudget } from "@/actions/budgets";
-import { Trash2, Eye, Link2 } from "lucide-react";
+import { Trash2, Eye, Link2, Copy } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +12,7 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const confirmDelete = async () => {
     if (!deleteId) return;
@@ -28,6 +29,12 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
     setDeleteId(null);
     setPin("");
     setLoading(false);
+  };
+
+  const handleCopyLink = (magicLinkId: string) => {
+    navigator.clipboard.writeText(`${window.location.origin}/orcamento/${magicLinkId}`);
+    setCopiedId(magicLinkId);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const getStatusBadge = (status: string) => {
@@ -49,7 +56,7 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
     <div>
       {/* Delete Modal */}
       {deleteId && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '1rem' }}>
           <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', background: 'var(--background)' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Autenticação Necessária</h3>
             <p style={{ opacity: 0.7, marginBottom: '1.5rem', fontSize: '0.9rem' }}>Insira o PIN de administrador para excluir este orçamento.</p>
@@ -85,86 +92,118 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
         </div>
       )}
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--glass-border)', opacity: 0.7 }}>
-              <th style={{ padding: '1rem 0' }}>Data</th>
-              <th style={{ padding: '1rem 0' }}>Paciente</th>
-              <th style={{ padding: '1rem 0' }}>Procedimento</th>
-              <th style={{ padding: '1rem 0' }}>Valor Total</th>
-              <th style={{ padding: '1rem 0' }}>Status</th>
-              <th style={{ padding: '1rem 0', textAlign: 'right' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {budgets.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: '3rem 0', textAlign: 'center', opacity: 0.5 }}>
-                  Nenhum orçamento gerado ainda.
-                </td>
-              </tr>
-            ) : budgets.map(budget => (
-              <tr key={budget.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-                <td style={{ padding: '1.25rem 0', opacity: 0.8 }}>
-                  {new Date(budget.createdAt).toLocaleDateString('pt-BR')}
-                </td>
-                <td style={{ padding: '1.25rem 0' }}>
-                  <div style={{ fontWeight: 600 }}>{budget.patientName}</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.6 }}>{budget.patientWhatsApp || budget.patientEmail || "-"}</div>
-                </td>
-                <td style={{ padding: '1.25rem 0' }}>{budget.surgeryType}</td>
-                <td style={{ padding: '1.25rem 0', fontWeight: 600 }}>
-                  R$ {budget.totalPrice.toLocaleString('pt-BR')}
-                </td>
-                <td style={{ padding: '1.25rem 0' }}>
-                  {getStatusBadge(budget.status)}
-                </td>
-                <td style={{ padding: '1.25rem 0', textAlign: 'right' }}>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                    <Link
-                      href={`/admin/orcamentos/novo?cloneId=${budget.id}`}
-                      className="btn-secondary"
-                      style={{ padding: '0.5rem', minHeight: 'auto' }}
-                      title="Duplicar Orçamento"
-                    >
-                      <span style={{ fontSize: '1rem' }}>📄</span>
-                    </Link>
-                    <Link
-                      href={`/orcamento/${budget.magicLinkId}`}
-                      target="_blank"
-                      className="btn-secondary"
-                      style={{ padding: '0.5rem', minHeight: 'auto' }}
-                      title="Ver Página do Cliente (Link Mágico)"
-                    >
-                      <Eye size={18} />
-                    </Link>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/orcamento/${budget.magicLinkId}`);
-                        alert("Link mágico copiado!");
-                      }}
-                      className="btn-secondary"
-                      style={{ padding: '0.5rem', minHeight: 'auto' }}
-                      title="Copiar Link"
-                    >
-                      <Link2 size={18} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteId(budget.id)}
-                      className="btn-danger"
-                      style={{ padding: '0.5rem', minHeight: 'auto' }}
-                      title="Excluir"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+      {budgets.length === 0 ? (
+        <p style={{ textAlign: 'center', opacity: 0.5, padding: '3rem 0' }}>
+          Nenhum orçamento gerado ainda.
+        </p>
+      ) : (
+        <>
+          {/* ══════ TABELA DESKTOP ══════ */}
+          <div className="budget-table-desktop">
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--glass-border)', opacity: 0.7 }}>
+                  <th style={{ padding: '1rem 0' }}>Data</th>
+                  <th style={{ padding: '1rem 0' }}>Paciente</th>
+                  <th style={{ padding: '1rem 0' }}>Procedimento</th>
+                  <th style={{ padding: '1rem 0' }}>Valor Total</th>
+                  <th style={{ padding: '1rem 0' }}>Status</th>
+                  <th style={{ padding: '1rem 0', textAlign: 'right' }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {budgets.map(budget => (
+                  <tr key={budget.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <td style={{ padding: '1.25rem 0', opacity: 0.8 }}>
+                      {new Date(budget.createdAt).toLocaleDateString('pt-BR')}
+                    </td>
+                    <td style={{ padding: '1.25rem 0' }}>
+                      <div style={{ fontWeight: 600 }}>{budget.patientName}</div>
+                      <div style={{ fontSize: '0.85rem', opacity: 0.6 }}>{budget.patientWhatsApp || budget.patientEmail || "-"}</div>
+                    </td>
+                    <td style={{ padding: '1.25rem 0' }}>{budget.surgeryType}</td>
+                    <td style={{ padding: '1.25rem 0', fontWeight: 600 }}>
+                      R$ {budget.totalPrice.toLocaleString('pt-BR')}
+                    </td>
+                    <td style={{ padding: '1.25rem 0' }}>
+                      {getStatusBadge(budget.status)}
+                    </td>
+                    <td style={{ padding: '1.25rem 0', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        <Link href={`/admin/orcamentos/novo?cloneId=${budget.id}`} className="btn-secondary" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Duplicar">
+                          <span style={{ fontSize: '1rem' }}>📄</span>
+                        </Link>
+                        <Link href={`/orcamento/${budget.magicLinkId}`} target="_blank" className="btn-secondary" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Visualizar">
+                          <Eye size={18} />
+                        </Link>
+                        <button onClick={() => handleCopyLink(budget.magicLinkId)} className="btn-secondary" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Copiar Link">
+                          {copiedId === budget.magicLinkId ? <span style={{ fontSize: '0.8rem', color: 'var(--success)' }}>✓</span> : <Link2 size={18} />}
+                        </button>
+                        <button onClick={() => setDeleteId(budget.id)} className="btn-danger" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Excluir">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ══════ CARDS MOBILE ══════ */}
+          <div className="budget-cards-mobile">
+            {budgets.map(budget => (
+              <div key={budget.id} className="glass-panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+                {/* Header: Nome + Status */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1.05rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {budget.patientName}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.5 }}>
+                      {new Date(budget.createdAt).toLocaleDateString('pt-BR')}
+                    </div>
                   </div>
-                </td>
-              </tr>
+                  {getStatusBadge(budget.status)}
+                </div>
+
+                {/* Info */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+                  <span style={{ opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    {budget.surgeryType}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: '1.1rem', flexShrink: 0, marginLeft: '0.5rem' }}>
+                    R$ {budget.totalPrice.toLocaleString('pt-BR')}
+                  </span>
+                </div>
+
+                {/* Contato */}
+                {(budget.patientWhatsApp || budget.patientEmail) && (
+                  <div style={{ fontSize: '0.8rem', opacity: 0.5, marginBottom: '0.75rem' }}>
+                    📱 {budget.patientWhatsApp || budget.patientEmail}
+                  </div>
+                )}
+
+                {/* Ações */}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <Link href={`/admin/orcamentos/novo?cloneId=${budget.id}`} className="btn-secondary" style={{ padding: '0.5rem 0.75rem', minHeight: 'auto', fontSize: '0.8rem', flex: 1, textAlign: 'center' }}>
+                    📄 Duplicar
+                  </Link>
+                  <Link href={`/orcamento/${budget.magicLinkId}`} target="_blank" className="btn-secondary" style={{ padding: '0.5rem 0.75rem', minHeight: 'auto', fontSize: '0.8rem', flex: 1, textAlign: 'center' }}>
+                    👁️ Ver
+                  </Link>
+                  <button onClick={() => handleCopyLink(budget.magicLinkId)} className="btn-secondary" style={{ padding: '0.5rem 0.75rem', minHeight: 'auto', fontSize: '0.8rem', flex: 1 }}>
+                    {copiedId === budget.magicLinkId ? "✓ Copiado!" : "🔗 Copiar"}
+                  </button>
+                  <button onClick={() => setDeleteId(budget.id)} className="btn-danger" style={{ padding: '0.5rem', minHeight: 'auto' }}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
