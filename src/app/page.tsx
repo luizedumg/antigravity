@@ -97,6 +97,16 @@ export default async function Home() {
             </Link>
           </div>
 
+          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, rgba(37,99,235,0.15), rgba(56,189,248,0.1))', border: '1px solid rgba(37,99,235,0.3)' }}>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ fontSize: '1.5rem', color: '#38bdf8' }}>💰 Orçamentos</h2>
+              <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Gere propostas cirúrgicas premium com envio automático via WhatsApp e E-mail.</p>
+            </div>
+            <Link href="/admin/orcamentos" className="btn-primary" style={{ width: '100%', display: 'inline-block', background: 'linear-gradient(135deg, var(--primary), #38bdf8)' }}>
+              Abrir Gerador de Orçamentos
+            </Link>
+          </div>
+
         </div>
 
         {/* ══════ RODAPÉ COM TEMPLATE COUNT ══════ */}
