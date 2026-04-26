@@ -40,3 +40,38 @@ model ApiKey {
   key       String             // chave da API
   createdAt DateTime @default(now())
 }
+
+model BudgetTemplate {
+  id            String   @id @default(uuid())
+  name          String   @unique // ex: Rinoplastia
+  basePrice     Float    @default(0) // Valor base da cirurgia
+  variablesJson String   // JSON com as variáveis (nome, tipo, preço, etc)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model BudgetVariable {
+  id        String   @id @default(uuid())
+  category  String   // Ex: Hospitais, Anestesista, Cirurgias Complementares
+  name      String   
+  price     Float
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Budget {
+  id              String   @id @default(uuid())
+  patientName     String
+  patientCpf      String?
+  patientWhatsApp String?
+  patientEmail    String?
+  surgeryType     String   // Nome do template utilizado
+  basePrice       Float    @default(0)
+  discount        Float    @default(0) // Campo de desconto
+  totalPrice      Float    @default(0)
+  variablesSelectedJson String // JSON das opções marcadas no momento da geração
+  status          String   @default("GERADO") // GERADO, ENVIADO, VISUALIZADO, APROVADO, RECUSADO
+  magicLinkId     String   @unique @default(uuid()) // UUID para a página premium do paciente
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

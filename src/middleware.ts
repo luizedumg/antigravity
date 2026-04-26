@@ -6,6 +6,7 @@ export function middleware(request: NextRequest) {
   // Rotas PÚBLICAS — não proteger
   if (
     pathname.startsWith('/paciente') ||
+    pathname.startsWith('/orcamento') ||
     pathname.startsWith('/api/webhook') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/login') ||
