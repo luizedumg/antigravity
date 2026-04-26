@@ -5,6 +5,8 @@ import BudgetGenerator from "./BudgetGenerator";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export default async function NovoOrcamentoPage({ searchParams }: { searchParams: Promise<{ cloneId?: string }> }) {
   const templatesRes = await getBudgetTemplates();
   const templates: any[] = (templatesRes.success && templatesRes.data) ? templatesRes.data : [];

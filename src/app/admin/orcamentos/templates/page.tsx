@@ -4,6 +4,8 @@ import TemplateForm from "./TemplateForm";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export default async function BudgetTemplatesPage() {
   const templatesRes = await getBudgetTemplates();
   const templates = templatesRes.success ? templatesRes.data : [];
