@@ -5,6 +5,8 @@ import WebhookTestCard from "./WebhookTestCard";
 import Link from "next/link";
 import { Plus, Settings2, Home } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export default async function OrcamentosDashboard() {
   const res = await getBudgets();
   const budgets = res.success ? res.data : [];
