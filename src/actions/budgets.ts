@@ -108,7 +108,10 @@ export async function deleteBudget(id: string, pin: string) {
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting budget:", error);
-    return { success: false, error: "Falha ao excluir o orçamento." };
+    const msg = error?.code === "P2025" 
+      ? "Orçamento não encontrado no banco de dados." 
+      : `Falha ao excluir: ${error?.message || "Erro desconhecido"}`;
+    return { success: false, error: msg };
   }
 }
 
