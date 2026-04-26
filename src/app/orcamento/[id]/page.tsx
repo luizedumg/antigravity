@@ -2,6 +2,8 @@ import { getBudgetByMagicLink, updateBudgetStatus } from "@/actions/budgets";
 import { notFound } from "next/navigation";
 import BudgetClientView from "./BudgetClientView";
 
+export const dynamic = 'force-dynamic';
+
 export default async function MagicLinkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   
