@@ -12,14 +12,107 @@ export default function BudgetClientView({ budget }: { budget: any }) {
   return (
     <>
       <style dangerouslySetInnerHTML={{__html: `
+        /* ══════ PRINT — Single A4 Page ══════ */
+        @page {
+          size: A4 portrait;
+          margin: 15mm;
+        }
+
         @media print {
+          html, body {
+            width: 210mm;
+            height: 297mm;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
           body * { visibility: hidden; }
           .budget-print-container, .budget-print-container * { visibility: visible; }
-          .budget-print-container { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border-radius: 0; background: transparent !important; border: none !important; }
+          
+          .budget-print-container {
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            border: none !important;
+          }
+
           .hide-on-print { display: none !important; }
           .show-on-print { display: block !important; }
-          .budget-right-panel { width: auto !important; padding: 2.5rem 3rem !important; margin: 0.5rem 1rem !important; border: 2px solid #111 !important; border-radius: 1.5rem !important; flex: 1 1 100% !important; }
+
+          .budget-right-panel {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: white !important;
+          }
+
+          /* ── Print Header ── */
+          .print-header {
+            margin-bottom: 1rem !important;
+            padding-bottom: 0.75rem !important;
+          }
+          .print-header img { max-height: 36px !important; margin-bottom: 0.6rem !important; }
+          .print-header h1 { font-size: 1.1rem !important; letter-spacing: 0.08em !important; margin-bottom: 0 !important; }
+          .print-header .print-meta { margin-top: 0.5rem !important; gap: 0.15rem !important; font-size: 0.78rem !important; }
+          .print-header .print-meta p { margin: 0 !important; }
+
+          /* ── Cost Details ── */
+          .print-content { gap: 0.75rem !important; }
+          .print-content h3 { font-size: 0.7rem !important; margin-bottom: 0.4rem !important; }
+
+          .budget-cost-row {
+            padding: 0.4rem 0 !important;
+            gap: 0.4rem !important;
+          }
+          .budget-cost-name { font-size: 0.82rem !important; }
+          .budget-cost-value { font-size: 0.82rem !important; }
+
+          /* ── Total Box ── */
+          .print-total-box {
+            padding: 0.9rem 1rem !important;
+            border-radius: 0.5rem !important;
+            margin-top: 0.4rem !important;
+          }
+          .print-total-box .budget-total-value {
+            font-size: 1.8rem !important;
+          }
+          .print-total-box p { font-size: 0.7rem !important; margin-top: 0.4rem !important; margin-bottom: 0 !important; }
+
+          /* ── Payment Conditions ── */
+          .print-payment-box {
+            margin-top: 0.6rem !important;
+            padding: 0.8rem 1rem !important;
+            border-radius: 0.5rem !important;
+          }
+          .print-payment-header { margin-bottom: 0.5rem !important; gap: 0.4rem !important; }
+          .print-payment-header div:first-child {
+            width: 22px !important; height: 22px !important;
+            border-radius: 5px !important; font-size: 0.65rem !important;
+          }
+          .print-payment-header h3 { font-size: 0.65rem !important; }
+          .print-payment-items { gap: 0.3rem !important; font-size: 0.75rem !important; line-height: 1.4 !important; }
+          .print-payment-items span { font-size: 0.55rem !important; }
+          .print-payment-footer { margin-top: 0.5rem !important; padding-top: 0.4rem !important; }
+          .print-payment-footer p { font-size: 0.7rem !important; }
+
+          /* ── Print Footer ── */
+          .print-doc-footer {
+            margin-top: 0.8rem !important;
+            padding-top: 0.5rem !important;
+          }
+          .print-doc-footer p { font-size: 0.65rem !important; }
         }
+
         .show-on-print { display: none; }
 
         /* ══════ RESPONSIVE BUDGET VIEW ══════ */
@@ -167,6 +260,15 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           .budget-cost-value {
             font-size: 0.9rem;
           }
+
+          /* Mobile payment section */
+          .budget-payment-box {
+            padding: 1.25rem 1rem !important;
+          }
+          .budget-payment-items {
+            gap: 0.6rem !important;
+            font-size: 0.82rem !important;
+          }
         }
 
         @media (max-width: 380px) {
@@ -184,6 +286,13 @@ export default function BudgetClientView({ budget }: { budget: any }) {
 
           .budget-total-value {
             font-size: 2rem;
+          }
+
+          .budget-payment-box {
+            padding: 1rem 0.75rem !important;
+          }
+          .budget-payment-items {
+            font-size: 0.78rem !important;
           }
         }
       `}} />
@@ -217,10 +326,10 @@ export default function BudgetClientView({ budget }: { budget: any }) {
         <div className="budget-right-panel">
           
           {/* Header para impressão */}
-          <div className="show-on-print" style={{ marginBottom: '2.5rem', borderBottom: '1px solid #eee', paddingBottom: '1.5rem', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+          <div className="show-on-print print-header" style={{ marginBottom: '2.5rem', borderBottom: '1px solid #eee', paddingBottom: '1.5rem', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
             <img src="/logo.png" alt="Logo" style={{ maxHeight: '50px', marginBottom: '1.5rem', filter: 'brightness(0)' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#000' }}>Proposta Cirúrgica</h1>
-            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem', color: '#555' }}>
+            <div className="print-meta" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.9rem', color: '#555' }}>
               <p><strong>Paciente:</strong> {budget.patientName}</p>
               <p><strong>Procedimento:</strong> {budget.surgeryType}</p>
               <p><strong>Data de Emissão:</strong> {new Date(budget.createdAt).toLocaleDateString('pt-BR')}</p>
@@ -245,7 +354,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           </div>
 
           {/* Conteúdo principal */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div className="print-content" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div>
               <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Detalhamento dos Custos</h3>
               
@@ -268,7 +377,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
             </div>
 
             {/* Total */}
-            <div style={{ background: '#f8fafc', padding: '1.75rem', borderRadius: '1rem', marginTop: '1rem' }}>
+            <div className="print-total-box" style={{ background: '#f8fafc', padding: '1.75rem', borderRadius: '1rem', marginTop: '1rem' }}>
               <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Valor Total Estimado</p>
               {budget.discount > 0 && (
                 <p style={{ fontSize: '0.95rem', fontWeight: 500, color: '#10b981', marginBottom: '0.5rem' }}>
@@ -284,13 +393,13 @@ export default function BudgetClientView({ budget }: { budget: any }) {
             </div>
 
             {/* Condições de Pagamento */}
-            <div style={{ marginTop: '1.5rem', padding: '1.75rem', borderRadius: '1rem', border: '1px solid #e2e8f0', background: 'linear-gradient(135deg, #fafbfc 0%, #f1f5f9 100%)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+            <div className="print-payment-box budget-payment-box" style={{ marginTop: '1.5rem', padding: '1.75rem', borderRadius: '1rem', border: '1px solid #e2e8f0', background: 'linear-gradient(135deg, #fafbfc 0%, #f1f5f9 100%)' }}>
+              <div className="print-payment-header" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #0f172a, #1e293b)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>💳</div>
                 <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Condições de Pagamento</h3>
               </div>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', fontSize: '0.88rem', color: '#475569', lineHeight: 1.65 }}>
+              <div className="print-payment-items budget-payment-items" style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', fontSize: '0.88rem', color: '#475569', lineHeight: 1.65 }}>
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
                   <span style={{ color: '#10b981', fontWeight: 600, flexShrink: 0, marginTop: '2px', fontSize: '0.7rem' }}>●</span>
                   <p style={{ margin: 0 }}>O pagamento da equipe médica pode ser realizado em <strong style={{ color: '#0f172a' }}>dinheiro</strong>, <strong style={{ color: '#0f172a' }}>PIX</strong>, ou em cartões de <strong style={{ color: '#0f172a' }}>débito e crédito em até 18×</strong> <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>(acrescido das taxas vigentes)</span>.</p>
@@ -309,7 +418,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
                 </div>
               </div>
 
-              <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+              <div className="print-payment-footer" style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
                 <p style={{ fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic', margin: 0, lineHeight: 1.6 }}>
                   Quaisquer dúvidas ou personalizações de pagamento, não hesite em nos contatar.
                 </p>
@@ -318,7 +427,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           </div>
 
           {/* Rodapé impressão */}
-          <div className="show-on-print" style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #eee', textAlign: 'center' }}>
+          <div className="show-on-print print-doc-footer" style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #eee', textAlign: 'center' }}>
             <p style={{ fontSize: '0.8rem', color: '#999' }} suppressHydrationWarning>Documento gerado eletronicamente em {new Date().toLocaleString('pt-BR')}.</p>
           </div>
         </div>
