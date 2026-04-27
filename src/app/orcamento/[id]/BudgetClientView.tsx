@@ -203,7 +203,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
             </h1>
             <p style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 300, fontSize: '1.05rem', lineHeight: 1.6 }}>
               Olá, <span style={{ color: 'white', fontWeight: 500 }}>{budget.patientName}</span>.<br/>
-              Este é o seu orçamento personalizado, elaborado com exclusividade e os mais altos padrões médicos.
+              Este é o seu orçamento personalizado, elaborado com exclusividade e planejado conforme a análise do seu caso.
             </p>
           </div>
 
@@ -281,6 +281,39 @@ export default function BudgetClientView({ budget }: { budget: any }) {
               <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '1.25rem', lineHeight: 1.6 }}>
                 * Valores sujeitos a alteração caso haja necessidade de avaliação hospitalar adicional. Validade desta proposta: 30 dias.
               </p>
+            </div>
+
+            {/* Condições de Pagamento */}
+            <div style={{ marginTop: '1.5rem', padding: '1.75rem', borderRadius: '1rem', border: '1px solid #e2e8f0', background: 'linear-gradient(135deg, #fafbfc 0%, #f1f5f9 100%)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #0f172a, #1e293b)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>💳</div>
+                <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Condições de Pagamento</h3>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', fontSize: '0.88rem', color: '#475569', lineHeight: 1.65 }}>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#10b981', fontWeight: 600, flexShrink: 0, marginTop: '2px', fontSize: '0.7rem' }}>●</span>
+                  <p style={{ margin: 0 }}>O pagamento da equipe médica pode ser realizado em <strong style={{ color: '#0f172a' }}>dinheiro</strong>, <strong style={{ color: '#0f172a' }}>PIX</strong>, ou em cartões de <strong style={{ color: '#0f172a' }}>débito e crédito em até 18×</strong> <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>(acrescido das taxas vigentes)</span>.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#10b981', fontWeight: 600, flexShrink: 0, marginTop: '2px', fontSize: '0.7rem' }}>●</span>
+                  <p style={{ margin: 0 }}>Podem ser utilizados <strong style={{ color: '#0f172a' }}>múltiplos cartões</strong> para compor o pagamento.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#10b981', fontWeight: 600, flexShrink: 0, marginTop: '2px', fontSize: '0.7rem' }}>●</span>
+                  <p style={{ margin: 0 }}>Existe a possibilidade de <strong style={{ color: '#0f172a' }}>pagamentos parcelados mensais</strong> antes da cirurgia <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>(a combinar)</span>.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
+                  <span style={{ color: '#10b981', fontWeight: 600, flexShrink: 0, marginTop: '2px', fontSize: '0.7rem' }}>●</span>
+                  <p style={{ margin: 0 }}>Aceitamos alguns <strong style={{ color: '#0f172a' }}>consórcios</strong> <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>(consultar disponibilidade)</span>.</p>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                <p style={{ fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic', margin: 0, lineHeight: 1.6 }}>
+                  Quaisquer dúvidas ou personalizações de pagamento, não hesite em nos contatar.
+                </p>
+              </div>
             </div>
           </div>
 
