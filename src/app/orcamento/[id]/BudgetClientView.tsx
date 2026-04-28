@@ -160,10 +160,30 @@ export default function BudgetClientView({ budget }: { budget: any }) {
         }
 
         .budget-total-value {
-          font-size: 3.5rem;
-          font-weight: 300;
+          font-size: 2.5rem;
+          font-weight: 400;
           letter-spacing: -0.02em;
-          color: #0f172a;
+          color: #334155;
+        }
+
+        .budget-team-row {
+          background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%);
+          border-left: 3px solid #0f172a;
+          border-radius: 0 8px 8px 0;
+          padding: 0.85rem 1rem !important;
+          margin-bottom: 0.25rem;
+        }
+
+        .budget-team-row .budget-cost-name {
+          color: #0f172a !important;
+          font-weight: 600 !important;
+          font-size: 1.02rem !important;
+        }
+
+        .budget-team-row .budget-cost-value {
+          color: #0f172a !important;
+          font-weight: 700 !important;
+          font-size: 1.05rem !important;
         }
 
         .budget-header-bar {
@@ -237,7 +257,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           }
 
           .budget-total-value {
-            font-size: 2.25rem;
+            font-size: 1.85rem;
           }
 
           .budget-header-bar {
@@ -278,7 +298,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           }
 
           .budget-total-value {
-            font-size: 2rem;
+            font-size: 1.6rem;
           }
 
           .budget-payment-box {
@@ -366,13 +386,16 @@ export default function BudgetClientView({ budget }: { budget: any }) {
             <div className="print-costs-section">
               <h3 style={{ fontSize: '0.8rem', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Detalhamento dos Custos</h3>
               
-              {/* Cirurgia base */}
-              <div className="budget-cost-row">
-                <span className="budget-cost-name" style={{ fontWeight: 500, color: '#333' }}>{budget.surgeryType}</span>
+              {/* Equipe Médica (destaque) */}
+              <div className="budget-cost-row budget-team-row">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                  <span style={{ fontSize: '0.65rem', background: '#0f172a', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>Equipe Médica</span>
+                  <span className="budget-cost-name">{budget.surgeryType}</span>
+                </div>
                 <span className="budget-cost-value">R$ {budget.basePrice.toLocaleString('pt-BR')}</span>
               </div>
 
-              {/* Variáveis */}
+              {/* Demais custos (hospital, anestesia, etc.) */}
               {variables.map((v: any, idx: number) => (
                 <div key={idx} className="budget-cost-row">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
@@ -395,8 +418,8 @@ export default function BudgetClientView({ budget }: { budget: any }) {
               <p className="budget-total-value">
                 R$ {budget.totalPrice.toLocaleString('pt-BR')}
               </p>
-              <p className="print-validity" style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '1.25rem', lineHeight: 1.6 }}>
-                * Valores sujeitos a alteração caso haja necessidade de avaliação hospitalar adicional. Validade desta proposta: 30 dias.
+              <p className="print-validity" style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '1.25rem', lineHeight: 1.7, fontStyle: 'italic' }}>
+                Os valores referentes a custos hospitalares e anestésicos representam uma estimativa baseada nas tabelas vigentes na data desta proposta, podendo sofrer ajustes conforme atualização das instituições parceiras. Validade desta proposta: 30 dias.
               </p>
             </div>
 
