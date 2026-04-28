@@ -9,6 +9,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/orcamento') ||
     pathname.startsWith('/api/webhook') ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/ai') ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||

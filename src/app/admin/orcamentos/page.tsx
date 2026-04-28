@@ -2,6 +2,7 @@ import { getBudgets } from "@/actions/budgets";
 import BudgetList from "./BudgetList";
 import GlobalValueCard from "./GlobalValueCard";
 import WebhookTestCard from "./WebhookTestCard";
+import SmartBudgetInput from "./SmartBudgetInput";
 import Link from "next/link";
 import { Plus, Settings2, Home } from "lucide-react";
 
@@ -71,6 +72,9 @@ export default async function OrcamentosDashboard() {
 
         <WebhookTestCard webhookUrl={process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || ""} />
       </div>
+
+      {/* Orçamento Inteligente (AI) */}
+      <SmartBudgetInput />
 
       {/* List */}
       <div className="glass-panel">
