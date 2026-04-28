@@ -95,6 +95,13 @@ export default function BudgetClientView({ budget }: { budget: any }) {
             margin-bottom: 3.5rem !important;
             justify-content: flex-start !important; /* Date on left */
           }
+          
+          /* Force logo to be white despite browser ink-saving overrides */
+          .budget-logo-img {
+            filter: brightness(0) invert(1) !important;
+            -webkit-filter: brightness(0) invert(1) !important;
+            opacity: 1 !important;
+          }
         }
 
         .show-on-print { display: none; }
