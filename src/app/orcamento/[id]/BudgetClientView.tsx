@@ -419,7 +419,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
                 R$ {budget.totalPrice.toLocaleString('pt-BR')}
               </p>
               <p className="print-validity" style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '1.25rem', lineHeight: 1.7, fontStyle: 'italic' }}>
-                Os valores referentes a custos hospitalares e anestésicos representam uma estimativa baseada nas tabelas vigentes na data desta proposta, podendo sofrer ajustes conforme atualização das instituições parceiras. Validade desta proposta: 30 dias.
+                Os valores referentes a custos hospitalares e anestésicos representam uma estimativa baseada nas tabelas vigentes na data desta proposta, podendo sofrer ajustes conforme atualização das instituições parceiras. Validade desta proposta: 30 dias (a equipe).
               </p>
             </div>
 
