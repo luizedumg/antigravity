@@ -41,26 +41,27 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           /* Hide the download button specifically */
           .budget-header-bar button { display: none !important; }
 
-          /* Force the container to a fixed desktop proportion, then scale it */
+          /* Use zoom instead of transform to physically scale the layout footprint 
+             and avoid phantom bounding boxes that cause page breaks. */
           .budget-print-container {
-            position: absolute !important;
-            top: 50% !important;
-            left: 50% !important;
             width: 1100px !important;
-            height: 1450px !important;
-            transform: translate(-50%, -50%) scale(0.68) !important;
-            transform-origin: center center !important;
+            height: 1400px !important; /* Slightly shorter to guarantee fit */
+            zoom: 0.65 !important; /* Scales everything down layout-wise */
+            margin: 10mm auto !important; /* Center on page */
             
             /* Restore beautiful web styling */
             background: #0a0a0a !important;
             border-radius: 40px !important;
             box-shadow: 0 40px 80px rgba(0,0,0,0.3) !important;
             flex-wrap: nowrap !important;
-            margin: 0 !important;
             border: 1px solid rgba(255,255,255,0.1) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: row !important;
+            
+            /* STRICTLY PREVENT PAGE BREAKS */
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
 
           .budget-left-panel {
