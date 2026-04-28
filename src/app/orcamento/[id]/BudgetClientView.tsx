@@ -13,11 +13,11 @@ export default function BudgetClientView({ budget }: { budget: any }) {
     <>
       <style dangerouslySetInnerHTML={{__html: `
         /* ══════════════════════════════════════════════════
-           PRINT — Premium A4 Layout (Single Page)
+           PRINT — Pixel-Perfect Replica of Web View
            ══════════════════════════════════════════════════ */
         @page {
           size: A4 portrait;
-          margin: 0; /* Hides default browser headers/footers in many browsers */
+          margin: 0; 
         }
 
         @media print {
@@ -26,209 +26,74 @@ export default function BudgetClientView({ budget }: { budget: any }) {
             padding: 0 !important;
             width: 210mm;
             height: 297mm;
+            background: #e2e8f0 !important; /* Subtle grey background for the A4 page */
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            background: white !important;
-            font-size: 12px !important; /* Base font size for print */
           }
 
-          body::before, body::after { display: none !important; }
           body * { visibility: hidden; }
           .budget-print-container, .budget-print-container * { visibility: visible; }
 
+          /* Hide print-specific elements, keep web elements */
+          .show-on-print { display: none !important; }
+          .hide-on-print { display: flex !important; }
+          
+          /* Hide the download button specifically */
+          .budget-header-bar button { display: none !important; }
+
+          /* Force the container to a fixed desktop proportion, then scale it */
           .budget-print-container {
-            position: absolute;
-            left: 0; top: 0;
-            width: 210mm;
-            height: 297mm;
-            box-sizing: border-box;
-            background: white !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-          }
-
-          .hide-on-print { display: none !important; }
-          .show-on-print { display: block !important; }
-
-          .budget-right-panel {
-            width: 100% !important;
-            height: 100% !important;
-            box-sizing: border-box;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: 1100px !important;
+            height: 1450px !important;
+            transform: translate(-50%, -50%) scale(0.68) !important;
+            transform-origin: center center !important;
+            
+            /* Restore beautiful web styling */
+            background: #0a0a0a !important;
+            border-radius: 40px !important;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.3) !important;
+            flex-wrap: nowrap !important;
             margin: 0 !important;
-            padding: 15mm 20mm !important; /* Internal margins acting as page margins */
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            background: white !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: flex-start !important;
-          }
-
-          /* ── Premium Letterhead ── */
-          .print-header {
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            overflow: hidden !important;
             display: flex !important;
             flex-direction: row !important;
+          }
+
+          .budget-left-panel {
+            flex: 0 0 380px !important; /* Fixed width */
+            padding: 4rem 3rem !important;
+            background: #0a0a0a !important;
+            display: flex !important;
+            flex-direction: column !important;
             justify-content: space-between !important;
-            align-items: flex-start !important;
-            padding-bottom: 1.5rem !important;
-            margin-bottom: 2rem !important;
-            border-bottom: 1px solid #cbd5e1 !important;
+            position: relative !important;
           }
-          .print-header-left {
+
+          .budget-right-panel {
+            flex: 1 !important;
+            margin: 2rem !important;
+            border-radius: 30px !important;
+            padding: 4rem 4rem !important;
+            background: white !important;
+            border: 3px solid #111 !important;
+            box-shadow: -20px 0 50px rgba(0,0,0,0.5) !important;
             display: flex !important;
             flex-direction: column !important;
           }
-          .print-header img {
-            max-height: 45px !important;
-            margin-bottom: 0.5rem !important;
-          }
-          .print-header h1 {
-            font-size: 1.2rem !important;
-            font-weight: 400 !important;
-            letter-spacing: 0.2em !important;
-            text-transform: uppercase !important;
-            color: #0f172a !important;
-            margin: 0 !important;
-          }
-          .print-header-subtitle {
-            font-size: 0.75rem !important;
-            color: #64748b !important;
-            letter-spacing: 0.05em !important;
-            margin-top: 0.2rem !important;
-          }
-          .print-meta {
-            text-align: right !important;
-            font-size: 0.8rem !important;
-            color: #475569 !important;
-            line-height: 1.4 !important;
-          }
-          .print-meta-item {
-            margin-bottom: 0.2rem !important;
-          }
-          .print-meta-label {
-            font-weight: 600 !important;
-            color: #0f172a !important;
-            margin-right: 0.4rem !important;
+
+          /* Ensure payment box doesn't break and pushes nicely */
+          .budget-payment-box {
+            margin-top: auto !important;
           }
 
-          /* ── Cost Details ── */
-          .print-content {
-            display: flex !important;
-            flex-direction: column !important;
-            flex: none !important; /* Don't stretch */
-          }
-          .print-costs-section {
-            margin-bottom: 2rem !important;
-          }
-          .print-costs-section h3 {
-            font-size: 0.75rem !important;
-            margin-bottom: 0.8rem !important;
-            color: #94a3b8 !important;
-            letter-spacing: 0.1em !important;
-            border-bottom: 1px solid #f1f5f9 !important;
-            padding-bottom: 0.4rem !important;
-          }
-          .budget-cost-row {
-            padding: 0.5rem 0 !important;
-            border-bottom: 1px solid #f8fafc !important;
-          }
-          .budget-cost-name {
-            font-size: 0.85rem !important;
-            color: #334155 !important;
-          }
-          .budget-cost-value {
-            font-size: 0.85rem !important;
-            font-weight: 600 !important;
-            color: #0f172a !important;
-          }
-
-          /* ── Total Box (Elegant & Compact) ── */
-          .print-total-box {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: flex-end !important;
-            padding: 1.2rem 1.5rem !important;
-            border-radius: 8px !important;
-            margin: 1rem 0 2rem 0 !important;
-            background: #f8fafc !important;
-            border-left: 4px solid #0f172a !important;
-          }
-          .print-total-box .print-total-label {
-            font-size: 0.7rem !important;
-            letter-spacing: 0.1em !important;
-            color: #64748b !important;
-            margin-bottom: 0.2rem !important;
-          }
-          .print-total-box .budget-total-value {
-            font-size: 2.2rem !important;
-            font-weight: 400 !important;
-            color: #0f172a !important;
-            margin: 0 !important;
-          }
-          .print-total-box .print-validity {
-            font-size: 0.7rem !important;
-            color: #94a3b8 !important;
-            margin-top: 0.5rem !important;
-            text-align: right !important;
-          }
-
-          /* ── Payment Section ── */
-          .print-payment-box {
-            padding: 1.2rem 1.5rem !important;
-            border-radius: 8px !important;
-            border: 1px solid #e2e8f0 !important;
-            background: #ffffff !important;
-            margin-top: 0 !important; /* Removed auto margin that caused page breaks */
-          }
-          .print-payment-header {
-            margin-bottom: 0.8rem !important;
-            gap: 0.5rem !important;
-            display: flex !important;
-            align-items: center !important;
-          }
-          .print-payment-header div:first-child {
-            width: 22px !important; height: 22px !important;
-            border-radius: 4px !important; font-size: 0.7rem !important;
-          }
-          .print-payment-header h3 {
-            font-size: 0.75rem !important;
-            letter-spacing: 0.1em !important;
-            color: #475569 !important;
-            margin: 0 !important;
-          }
-          .print-payment-items {
-            gap: 0.4rem !important;
-            font-size: 0.8rem !important;
-            color: #334155 !important;
-            line-height: 1.4 !important;
-          }
-          .print-payment-items .bullet-dot {
-            font-size: 0.5rem !important;
-          }
-          .print-payment-footer {
-            margin-top: 0.8rem !important;
-            padding-top: 0.6rem !important;
-            border-top: 1px solid #f1f5f9 !important;
-          }
-          .print-payment-footer p {
-            font-size: 0.7rem !important;
-            color: #94a3b8 !important;
-            margin: 0 !important;
-          }
-
-          /* ── Footer ── */
-          .print-doc-footer {
-            margin-top: auto !important; /* Pushes footer to bottom of 297mm container */
-            padding-top: 1rem !important;
-            border-top: 1px solid #f1f5f9 !important;
-            text-align: center !important;
-          }
-          .print-doc-footer p { 
-            font-size: 0.65rem !important; 
-            color: #cbd5e1 !important; 
-            margin: 0 !important;
+          /* Fix widths inside scaled container */
+          .budget-header-bar {
+            margin-bottom: 3.5rem !important;
+            justify-content: flex-start !important; /* Date on left */
           }
         }
 
