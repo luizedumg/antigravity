@@ -13,20 +13,23 @@ export default function BudgetClientView({ budget }: { budget: any }) {
     <>
       <style dangerouslySetInnerHTML={{__html: `
         /* ══════════════════════════════════════════════════
-           PRINT — Premium A4 Layout (Full Page)
+           PRINT — Premium A4 Layout (Single Page)
            ══════════════════════════════════════════════════ */
         @page {
           size: A4 portrait;
-          margin: 18mm 20mm;
+          margin: 0; /* Hides default browser headers/footers in many browsers */
         }
 
         @media print {
           html, body {
             margin: 0 !important;
             padding: 0 !important;
+            width: 210mm;
+            height: 297mm;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             background: white !important;
+            font-size: 12px !important; /* Base font size for print */
           }
 
           body::before, body::after { display: none !important; }
@@ -36,177 +39,197 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           .budget-print-container {
             position: absolute;
             left: 0; top: 0;
-            width: 100%;
-            box-shadow: none !important;
-            border-radius: 0 !important;
+            width: 210mm;
+            height: 297mm;
+            box-sizing: border-box;
             background: white !important;
             border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
           }
 
           .hide-on-print { display: none !important; }
-          .show-on-print { display: flex !important; }
+          .show-on-print { display: block !important; }
 
           .budget-right-panel {
             width: 100% !important;
-            flex: 1 1 100% !important;
+            height: 100% !important;
+            box-sizing: border-box;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 15mm 20mm !important; /* Internal margins acting as page margins */
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
             background: white !important;
             display: flex !important;
             flex-direction: column !important;
-            min-height: 100vh !important;
+            justify-content: flex-start !important;
           }
 
-          /* ── Elegant Header ── */
+          /* ── Premium Letterhead ── */
           .print-header {
             display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            text-align: center !important;
-            padding-bottom: 1.8rem !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: flex-start !important;
+            padding-bottom: 1.5rem !important;
             margin-bottom: 2rem !important;
-            border-bottom: 2px solid #0f172a !important;
+            border-bottom: 1px solid #cbd5e1 !important;
+          }
+          .print-header-left {
+            display: flex !important;
+            flex-direction: column !important;
           }
           .print-header img {
-            max-height: 55px !important;
-            margin-bottom: 1.2rem !important;
+            max-height: 45px !important;
+            margin-bottom: 0.5rem !important;
           }
           .print-header h1 {
-            font-size: 1.6rem !important;
-            font-weight: 300 !important;
-            letter-spacing: 0.25em !important;
+            font-size: 1.2rem !important;
+            font-weight: 400 !important;
+            letter-spacing: 0.2em !important;
             text-transform: uppercase !important;
             color: #0f172a !important;
-            margin-bottom: 0.3rem !important;
+            margin: 0 !important;
           }
           .print-header-subtitle {
-            font-size: 0.8rem !important;
-            color: #94a3b8 !important;
-            letter-spacing: 0.08em !important;
+            font-size: 0.75rem !important;
+            color: #64748b !important;
+            letter-spacing: 0.05em !important;
             margin-top: 0.2rem !important;
           }
           .print-meta {
-            display: flex !important;
-            gap: 2.5rem !important;
-            margin-top: 1.4rem !important;
-            font-size: 0.88rem !important;
+            text-align: right !important;
+            font-size: 0.8rem !important;
+            color: #475569 !important;
+            line-height: 1.4 !important;
           }
           .print-meta-item {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            gap: 0.15rem !important;
+            margin-bottom: 0.2rem !important;
           }
           .print-meta-label {
-            font-size: 0.65rem !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.1em !important;
-            color: #94a3b8 !important;
             font-weight: 600 !important;
-          }
-          .print-meta-value {
-            font-size: 0.92rem !important;
             color: #0f172a !important;
-            font-weight: 500 !important;
+            margin-right: 0.4rem !important;
           }
 
-          /* ── Cost Details (grows to fill) ── */
+          /* ── Cost Details ── */
           .print-content {
-            flex: 1 !important;
             display: flex !important;
             flex-direction: column !important;
-            gap: 0 !important;
+            flex: none !important; /* Don't stretch */
           }
           .print-costs-section {
             margin-bottom: 2rem !important;
           }
           .print-costs-section h3 {
-            font-size: 0.72rem !important;
-            margin-bottom: 1rem !important;
+            font-size: 0.75rem !important;
+            margin-bottom: 0.8rem !important;
+            color: #94a3b8 !important;
+            letter-spacing: 0.1em !important;
+            border-bottom: 1px solid #f1f5f9 !important;
             padding-bottom: 0.4rem !important;
-            letter-spacing: 0.15em !important;
           }
           .budget-cost-row {
-            padding: 0.7rem 0 !important;
+            padding: 0.5rem 0 !important;
+            border-bottom: 1px solid #f8fafc !important;
           }
           .budget-cost-name {
-            font-size: 0.95rem !important;
+            font-size: 0.85rem !important;
+            color: #334155 !important;
           }
           .budget-cost-value {
-            font-size: 0.95rem !important;
+            font-size: 0.85rem !important;
             font-weight: 600 !important;
+            color: #0f172a !important;
           }
 
-          /* ── Total Box (centered, grand) ── */
+          /* ── Total Box (Elegant & Compact) ── */
           .print-total-box {
-            text-align: center !important;
-            padding: 1.8rem 2rem !important;
-            border-radius: 12px !important;
-            margin: 1.5rem 0 !important;
-            border: 2px solid #0f172a !important;
-            background: #fafbfc !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-end !important;
+            padding: 1.2rem 1.5rem !important;
+            border-radius: 8px !important;
+            margin: 1rem 0 2rem 0 !important;
+            background: #f8fafc !important;
+            border-left: 4px solid #0f172a !important;
           }
           .print-total-box .print-total-label {
-            font-size: 0.72rem !important;
-            letter-spacing: 0.15em !important;
+            font-size: 0.7rem !important;
+            letter-spacing: 0.1em !important;
+            color: #64748b !important;
+            margin-bottom: 0.2rem !important;
           }
           .print-total-box .budget-total-value {
-            font-size: 2.8rem !important;
-            font-weight: 300 !important;
-            letter-spacing: -0.02em !important;
+            font-size: 2.2rem !important;
+            font-weight: 400 !important;
+            color: #0f172a !important;
+            margin: 0 !important;
           }
           .print-total-box .print-validity {
-            font-size: 0.78rem !important;
-            margin-top: 0.8rem !important;
+            font-size: 0.7rem !important;
+            color: #94a3b8 !important;
+            margin-top: 0.5rem !important;
+            text-align: right !important;
           }
 
-          /* ── Payment Section (flex grows) ── */
+          /* ── Payment Section ── */
           .print-payment-box {
-            margin-top: auto !important;
-            padding: 1.5rem 1.8rem !important;
-            border-radius: 10px !important;
+            padding: 1.2rem 1.5rem !important;
+            border-radius: 8px !important;
             border: 1px solid #e2e8f0 !important;
-            background: #f8fafc !important;
+            background: #ffffff !important;
+            margin-top: 0 !important; /* Removed auto margin that caused page breaks */
           }
           .print-payment-header {
-            margin-bottom: 1rem !important;
+            margin-bottom: 0.8rem !important;
             gap: 0.5rem !important;
+            display: flex !important;
+            align-items: center !important;
           }
           .print-payment-header div:first-child {
-            width: 26px !important; height: 26px !important;
-            border-radius: 6px !important; font-size: 0.75rem !important;
+            width: 22px !important; height: 22px !important;
+            border-radius: 4px !important; font-size: 0.7rem !important;
           }
           .print-payment-header h3 {
-            font-size: 0.7rem !important;
-            letter-spacing: 0.12em !important;
+            font-size: 0.75rem !important;
+            letter-spacing: 0.1em !important;
+            color: #475569 !important;
+            margin: 0 !important;
           }
           .print-payment-items {
-            gap: 0.5rem !important;
-            font-size: 0.85rem !important;
-            line-height: 1.5 !important;
+            gap: 0.4rem !important;
+            font-size: 0.8rem !important;
+            color: #334155 !important;
+            line-height: 1.4 !important;
           }
           .print-payment-items .bullet-dot {
-            font-size: 0.6rem !important;
+            font-size: 0.5rem !important;
           }
           .print-payment-footer {
             margin-top: 0.8rem !important;
-            padding-top: 0.7rem !important;
+            padding-top: 0.6rem !important;
+            border-top: 1px solid #f1f5f9 !important;
           }
           .print-payment-footer p {
-            font-size: 0.78rem !important;
+            font-size: 0.7rem !important;
+            color: #94a3b8 !important;
+            margin: 0 !important;
           }
 
           /* ── Footer ── */
           .print-doc-footer {
-            margin-top: 1.5rem !important;
+            margin-top: auto !important; /* Pushes footer to bottom of 297mm container */
             padding-top: 1rem !important;
-            border-top: 1px solid #e2e8f0 !important;
+            border-top: 1px solid #f1f5f9 !important;
             text-align: center !important;
           }
-          .print-doc-footer p { font-size: 0.72rem !important; color: #94a3b8 !important; }
+          .print-doc-footer p { 
+            font-size: 0.65rem !important; 
+            color: #cbd5e1 !important; 
+            margin: 0 !important;
+          }
         }
 
         .show-on-print { display: none; }
@@ -422,14 +445,17 @@ export default function BudgetClientView({ budget }: { budget: any }) {
         {/* Direita: O Orçamento (que será impresso) */}
         <div className="budget-right-panel">
           
-          {/* ═══ Header para impressão (centrado, elegante) ═══ */}
-          <div className="show-on-print print-header" style={{ marginBottom: '2.5rem', borderBottom: '1px solid #eee', paddingBottom: '1.5rem', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' as any }}>
-            <img src="/logo.png" alt="Logo" style={{ maxHeight: '50px', marginBottom: '1.5rem', filter: 'brightness(0)' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#000' }}>Proposta Cirúrgica</h1>
-            <p className="print-header-subtitle" style={{ fontSize: '0.8rem', color: '#94a3b8', letterSpacing: '0.05em', margin: 0 }}>
-              Elaborada com exclusividade para você
-            </p>
-            <div className="print-meta" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column' as any, gap: '0.3rem', fontSize: '0.9rem', color: '#555' }}>
+          {/* ═══ Header para impressão (Letterhead Premium) ═══ */}
+          <div className="show-on-print print-header">
+            <div className="print-header-left">
+              <img src="/logo.png" alt="Logo" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <h1>Proposta Cirúrgica</h1>
+              <p className="print-header-subtitle">
+                Elaborada com exclusividade para você
+              </p>
+            </div>
+            
+            <div className="print-meta">
               <div className="print-meta-item">
                 <span className="print-meta-label">Paciente</span>
                 <span className="print-meta-value">{budget.patientName}</span>
@@ -439,8 +465,8 @@ export default function BudgetClientView({ budget }: { budget: any }) {
                 <span className="print-meta-value">{budget.surgeryType}</span>
               </div>
               <div className="print-meta-item">
-                <span className="print-meta-label">Data de Emissão</span>
-                <span className="print-meta-value">{new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                <span className="print-meta-label">Data</span>
+                <span className="print-meta-value">{new Date(budget.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
               </div>
             </div>
           </div>
