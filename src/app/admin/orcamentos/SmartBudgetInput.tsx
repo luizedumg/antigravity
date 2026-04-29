@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Sparkles, Send, Loader2, Check, X, AlertTriangle, Copy, ExternalLink } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Sparkles, Send, Loader2, Check, X, AlertTriangle, Copy, ExternalLink, Mic, MicOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type PreviewData = {
@@ -25,6 +25,64 @@ export default function SmartBudgetInput() {
   const [result, setResult] = useState<{ magicLink: string; totalPrice: number } | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Speech Recognition setup
+  const toggleRecording = useCallback(() => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    let finalTranscript = message;
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += (finalTranscript ? " " : "") + transcript;
+        } else {
+          interim = transcript;
+        }
+      }
+      setMessage(finalTranscript + (interim ? " " + interim : ""));
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error !== "aborted") {
+        setError("Erro no microfone: " + event.error);
+      }
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+    setError("");
+  }, [isRecording, message]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { recognitionRef.current?.stop(); };
+  }, []);
 
   const handlePreview = async () => {
     if (!message.trim() || message.trim().length < 5) {
@@ -139,49 +197,95 @@ export default function SmartBudgetInput() {
             Orçamento Inteligente
           </h3>
           <p style={{ fontSize: "0.78rem", opacity: 0.5, margin: 0 }}>
-            Descreva e a IA gera automaticamente
+            Descreva por texto ou áudio e a IA gera automaticamente
           </p>
         </div>
       </div>
 
       {/* Input Area */}
       {!preview && !result && (
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
-          <textarea
-            ref={inputRef}
-            value={message}
-            onChange={(e) => { setMessage(e.target.value); setError(""); }}
-            onKeyDown={handleKeyDown}
-            placeholder='Ex: "Orçamento Maria Silva, rinoplastia com costela, hospital santa marta, anestesia santa marta"'
-            rows={2}
-            style={{
-              flex: 1, padding: "0.85rem 1rem", borderRadius: "12px",
-              border: "1px solid var(--glass-border)", background: "var(--background)",
-              color: "var(--foreground)", fontSize: "0.92rem", resize: "none",
-              fontFamily: "inherit", lineHeight: 1.5, outline: "none",
-              transition: "border-color 0.2s",
-            }}
-            onFocus={(e) => e.target.style.borderColor = "#8b5cf6"}
-            onBlur={(e) => e.target.style.borderColor = "var(--glass-border)"}
-            disabled={loading}
-          />
-          <button
-            onClick={handlePreview}
-            disabled={loading || !message.trim()}
-            style={{
-              padding: "0.85rem 1.25rem", borderRadius: "12px", border: "none",
-              background: loading ? "#64748b" : "linear-gradient(135deg, #8b5cf6, #6366f1)",
-              color: "white", cursor: loading ? "not-allowed" : "pointer",
-              display: "flex", alignItems: "center", gap: "0.5rem",
-              fontSize: "0.9rem", fontWeight: 600, transition: "all 0.2s",
-              minHeight: "52px", whiteSpace: "nowrap",
-            }}
-          >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={16} />}
-            {loading ? "Analisando..." : "Interpretar"}
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ position: "relative" }}>
+            <textarea
+              ref={inputRef}
+              value={message}
+              onChange={(e) => { setMessage(e.target.value); setError(""); }}
+              onKeyDown={handleKeyDown}
+              placeholder='Ex: "Orçamento Maria Silva, rinoplastia com costela, hospital santa marta, anestesia santa marta"'
+              rows={2}
+              style={{
+                width: "100%", padding: "0.85rem 1rem", paddingRight: "3.5rem", borderRadius: "12px",
+                border: `1px solid ${isRecording ? "#ef4444" : "var(--glass-border)"}`,
+                background: "var(--background)",
+                color: "var(--foreground)", fontSize: "0.92rem", resize: "none",
+                fontFamily: "inherit", lineHeight: 1.5, outline: "none",
+                transition: "border-color 0.3s", boxSizing: "border-box",
+              }}
+              onFocus={(e) => { if (!isRecording) e.target.style.borderColor = "#8b5cf6"; }}
+              onBlur={(e) => { if (!isRecording) e.target.style.borderColor = "var(--glass-border)"; }}
+              disabled={loading}
+            />
+            {/* Mic button inside textarea */}
+            <button
+              onClick={toggleRecording}
+              disabled={loading}
+              title={isRecording ? "Parar gravação" : "Gravar áudio"}
+              style={{
+                position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)",
+                width: "36px", height: "36px", borderRadius: "50%", border: "none",
+                background: isRecording ? "#ef4444" : "rgba(139,92,246,0.1)",
+                color: isRecording ? "white" : "#8b5cf6",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.3s",
+                animation: isRecording ? "pulse-mic 1.5s infinite" : "none",
+              }}
+            >
+              {isRecording ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+          </div>
+
+          {/* Recording indicator + Send button */}
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            {isRecording && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                fontSize: "0.82rem", color: "#ef4444", fontWeight: 500,
+              }}>
+                <span style={{
+                  width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444",
+                  animation: "pulse-mic 1s infinite",
+                }} />
+                Ouvindo... fale o orçamento
+              </div>
+            )}
+            <button
+              onClick={handlePreview}
+              disabled={loading || !message.trim()}
+              style={{
+                marginLeft: "auto",
+                padding: "0.75rem 1.25rem", borderRadius: "12px", border: "none",
+                background: loading ? "#64748b" : "linear-gradient(135deg, #8b5cf6, #6366f1)",
+                color: "white", cursor: (loading || !message.trim()) ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                fontSize: "0.9rem", fontWeight: 600, transition: "all 0.2s",
+                opacity: (loading || !message.trim()) ? 0.5 : 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={16} />}
+              {loading ? "Analisando..." : "Interpretar"}
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Mic animation styles */}
+      <style>{`
+        @keyframes pulse-mic {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.15); }
+        }
+      `}</style>
 
       {/* Error */}
       {error && (

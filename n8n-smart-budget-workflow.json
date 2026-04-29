@@ -1,0 +1,301 @@
+{
+  "name": "Orçamento Inteligente via WhatsApp",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "id": "a1",
+      "name": "Chamado pelo Agente"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dados recebidos automaticamente do workflow da Cláudia\nconst input = $input.first().json;\nconst sender = input.sender || input.remoteJid || '';\nconst text = input.text || input.message || '';\nconst action = input.budgetAction || input.action || 'preview';\n\nreturn [{ json: { sender, text, action } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "id": "a2",
+      "name": "Extrair Dados"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nif (item.action === 'preview') return [{ json: item }];\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 200],
+      "id": "a3",
+      "name": "Rota Preview"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nif (item.action === 'confirm') return [{ json: item }];\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 420],
+      "id": "a4",
+      "name": "Rota Confirm"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.drluizedumamede.com.br/api/ai/smart-budget",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer antigravity-ai-secret-2026" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'preview', message: $json.text }) }}",
+        "options": { "timeout": 30000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 200],
+      "id": "a5",
+      "name": "API Preview"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst sender = $('Extrair Dados').first().json.sender;\n\nif (!data.success) {\n  return [{ json: { sender, text: '❌ *Erro:* ' + (data.error || 'Não compreendido. Reformule.'), preview: '' } }];\n}\n\nconst p = data.preview;\nconst vars = p.matchedVariables || [];\nlet msg = '✨ *ORÇAMENTO INTERPRETADO*\\n\\n';\nmsg += '👤 *Paciente:* ' + p.patientName + '\\n';\nmsg += '🏥 *Cirurgia:* ' + p.surgeryTemplate.name + '\\n';\nmsg += '💰 *Equipe Médica:* R$ ' + p.surgeryTemplate.basePrice.toLocaleString('pt-BR') + '\\n\\n';\nif (vars.length > 0) {\n  msg += '📋 *Adicionais:*\\n';\n  vars.forEach(v => { msg += '  • [' + v.category + '] ' + v.name + ' — R$ ' + v.price.toLocaleString('pt-BR') + '\\n'; });\n  msg += '\\n';\n}\nif (p.discount > 0) msg += '🏷️ *Desconto:* - R$ ' + p.discount.toLocaleString('pt-BR') + '\\n';\nmsg += '━━━━━━━━━━━━━━━━━━━━━━━━\\n';\nmsg += '💎 *TOTAL: R$ ' + p.totalPrice.toLocaleString('pt-BR') + '*\\n';\nmsg += '━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n';\nconst cl = p.confidence === 'high' ? '🟢 Alta' : p.confidence === 'medium' ? '🟡 Média' : '🔴 Baixa';\nmsg += '📊 Confiança: ' + cl + '\\n';\nif (p.notes) msg += '💡 ' + p.notes + '\\n';\nmsg += '\\n✅ Responda *\"sim\"* para gerar\\n❌ Ou envie nova mensagem para corrigir';\n\nreturn [{ json: { sender, text: msg, preview: JSON.stringify(p) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 200],
+      "id": "a6",
+      "name": "Formatar Resumo"
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "=smart-budget:{{ $json.sender }}",
+        "value": "={{ $json.preview }}",
+        "expire": true,
+        "ttl": 300
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1300, 200],
+      "id": "a7",
+      "name": "Salvar Preview Redis"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evo-iwcs0c04cssk0og4wkooo0o0.drluizedumamede.com.br/message/sendText/luizrinoplastia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "B5FC5AA9C77E-40CC-8917-F6C4EAC23147" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.sender, text: $json.text }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 200],
+      "id": "a8",
+      "name": "Enviar Resumo WhatsApp"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "=smart-budget:{{ $json.sender }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [780, 420],
+      "id": "a9",
+      "name": "Buscar Preview Redis"
+    },
+    {
+      "parameters": {
+        "jsCode": "const redisResult = $input.first().json.result || $input.first().json.data || '';\nconst sender = $('Extrair Dados').first().json.sender;\n\nif (!redisResult || redisResult === '' || redisResult === 'null') {\n  return [{ json: { sender, hasPreview: false, preview: null } }];\n}\n\nreturn [{ json: { sender, hasPreview: true, preview: redisResult } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 420],
+      "id": "a10",
+      "name": "Verificar Preview"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nif (item.hasPreview) return [{ json: item }];\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 360],
+      "id": "a11",
+      "name": "Filtro Com Preview"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nif (!item.hasPreview) return [{ json: item }];\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 500],
+      "id": "a11b",
+      "name": "Filtro Sem Pendente"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.drluizedumamede.com.br/api/ai/smart-budget",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer antigravity-ai-secret-2026" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'confirm', preview: JSON.parse($json.preview) }) }}",
+        "options": { "timeout": 15000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 360],
+      "id": "a12",
+      "name": "API Confirm"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "=smart-budget:{{ $('Extrair Dados').first().json.sender }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1820, 360],
+      "id": "a13",
+      "name": "Limpar Redis"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evo-iwcs0c04cssk0og4wkooo0o0.drluizedumamede.com.br/message/sendText/luizrinoplastia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "B5FC5AA9C77E-40CC-8917-F6C4EAC23147" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $('Extrair Dados').first().json.sender, text: '✅ *Orçamento Gerado!*\\n\\n💰 Total: R$ ' + ($json.totalPrice || 0).toLocaleString('pt-BR') + '\\n👤 ' + ($json.patientName || '') + '\\n🏥 ' + ($json.surgeryType || '') + '\\n\\n🔗 *Link:*\\n' + ($json.magicLink || '') + '\\n\\n_Envie este link ao paciente._' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2080, 360],
+      "id": "a14",
+      "name": "Enviar Link WhatsApp"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evo-iwcs0c04cssk0og4wkooo0o0.drluizedumamede.com.br/message/sendText/luizrinoplastia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "B5FC5AA9C77E-40CC-8917-F6C4EAC23147" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.sender, text: '⚠️ Não há orçamento pendente.\\nEnvie uma nova solicitação com a palavra *orçamento*.' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 540],
+      "id": "a15",
+      "name": "Aviso Sem Pendente"
+    }
+  ],
+  "connections": {
+    "Chamado pelo Agente": {
+      "main": [[
+        { "node": "Extrair Dados", "type": "main", "index": 0 }
+      ]]
+    },
+    "Extrair Dados": {
+      "main": [[
+        { "node": "Rota Preview", "type": "main", "index": 0 },
+        { "node": "Rota Confirm", "type": "main", "index": 0 }
+      ]]
+    },
+    "Rota Preview": {
+      "main": [[
+        { "node": "API Preview", "type": "main", "index": 0 }
+      ]]
+    },
+    "API Preview": {
+      "main": [[
+        { "node": "Formatar Resumo", "type": "main", "index": 0 }
+      ]]
+    },
+    "Formatar Resumo": {
+      "main": [[
+        { "node": "Salvar Preview Redis", "type": "main", "index": 0 }
+      ]]
+    },
+    "Salvar Preview Redis": {
+      "main": [[
+        { "node": "Enviar Resumo WhatsApp", "type": "main", "index": 0 }
+      ]]
+    },
+    "Rota Confirm": {
+      "main": [[
+        { "node": "Buscar Preview Redis", "type": "main", "index": 0 }
+      ]]
+    },
+    "Buscar Preview Redis": {
+      "main": [[
+        { "node": "Verificar Preview", "type": "main", "index": 0 }
+      ]]
+    },
+    "Verificar Preview": {
+      "main": [[
+        { "node": "Filtro Com Preview", "type": "main", "index": 0 },
+        { "node": "Filtro Sem Pendente", "type": "main", "index": 0 }
+      ]]
+    },
+    "Filtro Com Preview": {
+      "main": [[
+        { "node": "API Confirm", "type": "main", "index": 0 }
+      ]]
+    },
+    "Filtro Sem Pendente": {
+      "main": [[
+        { "node": "Aviso Sem Pendente", "type": "main", "index": 0 }
+      ]]
+    },
+    "API Confirm": {
+      "main": [[
+        { "node": "Limpar Redis", "type": "main", "index": 0 }
+      ]]
+    },
+    "Limpar Redis": {
+      "main": [[
+        { "node": "Enviar Link WhatsApp", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
