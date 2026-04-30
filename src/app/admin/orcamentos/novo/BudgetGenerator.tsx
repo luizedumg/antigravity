@@ -2,9 +2,38 @@
 
 import { useState } from "react";
 import { createBudget, sendBudgetToN8N } from "@/actions/budgets";
-import { Loader2, Calculator, Send, Check } from "lucide-react";
+import { Loader2, Calculator, Send, Check, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import WhatsAppInput from "./WhatsAppInput";
+
+// ── Utilitário: extrair nome-base do hospital de uma variável ──
+function extractHospitalBase(name: string): string | null {
+  // "Hospital Santa Marta (Rino-Costal)" → "santa marta"
+  // "Anestesia Santa Marta (Rino)" → "santa marta"
+  const cleaned = name
+    .replace(/^(hospital|anestesia)\s*/i, '')
+    .replace(/\s*\(.*\)\s*$/, '')
+    .trim()
+    .toLowerCase();
+  return cleaned || null;
+}
+
+// ── Utilitário: extrair keywords da cirurgia entre parênteses ──
+function extractKeywords(name: string): string[] {
+  const match = name.match(/\(([^)]+)\)/);
+  if (!match) return [];
+  return match[1].toLowerCase().split(/[-\s,]+/).filter(Boolean);
+}
+
+// ── Utilitário: score de matching entre keywords ──
+function matchScore(varKeywords: string[], targetKeywords: string[]): number {
+  if (targetKeywords.length === 0) return 0;
+  let score = 0;
+  varKeywords.forEach(kw => {
+    if (targetKeywords.some(tk => tk.includes(kw) || kw.includes(tk))) score++;
+  });
+  return score;
+}
 
 export default function BudgetGenerator({ templates, globalVariables, cloneBudget }: { templates: any[], globalVariables: any[], cloneBudget?: any }) {
   const router = useRouter();
@@ -67,6 +96,65 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
         if (!prev[varId]) {
           next[varId] = true;
         }
+
+        // ── AUTO-SELEÇÃO: Se selecionou um Hospital, auto-selecionar Anestesia ──
+        if (variable.category === 'Hospitais' && !prev[varId]) {
+          const hospitalBase = extractHospitalBase(variable.name);
+          const hospitalKeywords = extractKeywords(variable.name);
+          
+          // Buscar keywords do template de cirurgia selecionado para melhor matching
+          const surgeryKeywords: string[] = [];
+          if (activeTemplate) {
+            const sName = activeTemplate.name.toLowerCase();
+            if (sName.includes('costal') || sName.includes('costela')) surgeryKeywords.push('costal', 'rino');
+            else if (sName.includes('septal')) surgeryKeywords.push('septal', 'rino');
+            else if (sName.includes('rino')) surgeryKeywords.push('rino');
+            if (sName.includes('oto')) surgeryKeywords.push('oto');
+          }
+          
+          const allTargetKw = [...new Set([...hospitalKeywords, ...surgeryKeywords])];
+          
+          if (hospitalBase) {
+            // Filtrar anestesias do mesmo hospital
+            const anesthesias = globalVariables.filter((v: any) => 
+              v.category === 'Anestesista' && extractHospitalBase(v.name) === hospitalBase
+            );
+            
+            // Desmarcar todas as anestesias
+            globalVariables
+              .filter((v: any) => v.category === 'Anestesista')
+              .forEach(v => { next[v.id] = false; });
+            
+            if (anesthesias.length > 0) {
+              // Escolher a com melhor matching de keywords
+              let best = anesthesias[0];
+              let bestScore = -1;
+              anesthesias.forEach((a: any) => {
+                const aKw = extractKeywords(a.name);
+                const score = matchScore(aKw, allTargetKw);
+                if (score > bestScore) { bestScore = score; best = a; }
+              });
+              next[best.id] = true;
+            }
+          }
+        }
+
+        // ── Se selecionou Anestesia, validar que pertence ao hospital selecionado ──
+        if (variable.category === 'Anestesista' && !prev[varId]) {
+          const selectedHospital = globalVariables.find((v: any) => 
+            v.category === 'Hospitais' && next[v.id]
+          );
+          if (selectedHospital) {
+            const hospBase = extractHospitalBase(selectedHospital.name);
+            const anestBase = extractHospitalBase(variable.name);
+            if (hospBase && anestBase && hospBase !== anestBase) {
+              // Incompatível! Não permitir
+              next[varId] = false;
+              return next;
+            }
+          }
+        }
+
         return next;
       });
     } else {
@@ -127,6 +215,21 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
 
   const categories = ["Hospitais", "Anestesista", "Cirurgias Complementares", "Exames", "Outros"];
 
+  // ── Determinar hospital selecionado para filtrar anestesias ──
+  const selectedHospital = globalVariables.find((v: any) => v.category === 'Hospitais' && selectedVariables[v.id]);
+  const selectedHospitalBase = selectedHospital ? extractHospitalBase(selectedHospital.name) : null;
+
+  // Filtrar variáveis incompatíveis para a renderização
+  const getFilteredVars = (category: string, vars: any[]) => {
+    if (category === 'Anestesista' && selectedHospitalBase) {
+      return vars.filter((v: any) => {
+        const anestBase = extractHospitalBase(v.name);
+        return anestBase === selectedHospitalBase;
+      });
+    }
+    return vars;
+  };
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem' }}>
       
@@ -171,24 +274,45 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
 
           {categories.map(category => {
             if (!groupedVars[category]) return null;
+            const filteredVars = getFilteredVars(category, groupedVars[category]);
+            const isFiltered = category === 'Anestesista' && selectedHospitalBase && filteredVars.length < (groupedVars[category]?.length || 0);
+            
             return (
               <div key={category} style={{ marginTop: '2rem' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '1rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.5rem' }}>
-                  {category}
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                  {groupedVars[category].map((v: any) => (
-                    <label key={v.id} onClick={() => handleToggleVariable(v.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', background: selectedVariables[v.id] ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.2s' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '22px', height: '22px', borderRadius: '6px', border: selectedVariables[v.id] ? 'none' : '1px solid #ccc', background: selectedVariables[v.id] ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {selectedVariables[v.id] && <Check size={14} color="white" />}
-                        </div>
-                        <span style={{ fontWeight: 500 }}>{v.name}</span>
-                      </div>
-                      <span style={{ fontWeight: 600, opacity: 0.8 }}>+ R$ {v.price.toLocaleString('pt-BR')}</span>
-                    </label>
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--primary)', margin: 0 }}>
+                    {category}
+                  </h3>
+                  {isFiltered && (
+                    <span style={{
+                      fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: '12px',
+                      background: 'rgba(139,92,246,0.1)', color: '#8b5cf6',
+                      display: 'flex', alignItems: 'center', gap: '0.3rem',
+                    }}>
+                      🔗 Filtrado por {selectedHospital?.name?.replace(/\s*\(.*\)/, '') || 'hospital'}
+                    </span>
+                  )}
                 </div>
+                {filteredVars.length === 0 ? (
+                  <div style={{ padding: '1rem', border: '1px dashed var(--glass-border)', borderRadius: '8px', fontSize: '0.85rem', opacity: 0.5, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <AlertTriangle size={14} />
+                    Nenhuma opção de anestesia cadastrada para este hospital.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    {filteredVars.map((v: any) => (
+                      <label key={v.id} onClick={() => handleToggleVariable(v.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', background: selectedVariables[v.id] ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.2s' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ width: '22px', height: '22px', borderRadius: '6px', border: selectedVariables[v.id] ? 'none' : '1px solid #ccc', background: selectedVariables[v.id] ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {selectedVariables[v.id] && <Check size={14} color="white" />}
+                          </div>
+                          <span style={{ fontWeight: 500 }}>{v.name}</span>
+                        </div>
+                        <span style={{ fontWeight: 600, opacity: 0.8 }}>+ R$ {v.price.toLocaleString('pt-BR')}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

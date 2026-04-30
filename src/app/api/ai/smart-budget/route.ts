@@ -112,13 +112,35 @@ ${catalog}
 
 REGRAS OBRIGATÓRIAS:
 1. O "patientName" é o nome completo do paciente mencionado na mensagem.
-2. Para "surgeryTemplateId": encontre o BudgetTemplate cujo nome mais se aproxima do que foi descrito. Exemplo: "rino com costela" → "Rinoplastia Primária Estruturada Ultrassônica Costal".
+2. Para "surgeryTemplateId": encontre o BudgetTemplate cujo nome mais se aproxima do que foi descrito. Exemplo: "rino com costela" → "Rinoplastia Primária Estruturada Ultrassônica Costal". "Rino sem costela" / "rino septal" → "Rinoplastia Primária Estruturada Ultrassônica Septal".
 3. Para "matchedVariableIds": encontre as BudgetVariables que mais se aproximam do que foi descrito.
-4. A ANESTESIA é determinada pelo HOSPITAL e TIPO DE CIRURGIA, NÃO pelo nome do médico anestesista. Ex: "anestesia do santa marta" para uma rinoplastia → buscar "Anestesia Santa Marta (Rino)".
-5. Categorias de seleção única (Hospitais, Anestesista): escolha APENAS 1 de cada.
-6. Se o admin NÃO mencionar uma variável, NÃO inclua (exceto se marcada como PADRÃO no catálogo).
-7. Se mencionar desconto, extraia o valor numérico.
-8. Se NÃO conseguir identificar algo com segurança, coloque null e explique em "notes".
+4. Categorias de seleção única (Hospitais, Anestesista): escolha APENAS 1 de cada.
+5. Se o admin NÃO mencionar uma variável, NÃO inclua (exceto se marcada como PADRÃO no catálogo).
+6. Se mencionar desconto, extraia o valor numérico.
+7. Se NÃO conseguir identificar algo com segurança, coloque null e explique em "notes".
+
+═══ REGRA CRÍTICA: ACOPLAMENTO HOSPITAL ↔ ANESTESIA ═══
+Esta é a regra MAIS IMPORTANTE. Siga à risca:
+
+a) A anestesia é SEMPRE do MESMO hospital que a cirurgia. É IMPOSSÍVEL operar em um hospital e usar anestesista de outro.
+   Exemplo CORRETO: Hospital Santa Marta + Anestesia Santa Marta
+   Exemplo ERRADO: Hospital Santa Marta + Anestesia UMC ← NUNCA FAÇA ISSO
+
+b) Para escolher a anestesia correta, faça matching pelo NOME DO HOSPITAL + TIPO DE CIRURGIA:
+   - Extraia o nome do hospital selecionado (ex: "Santa Marta")
+   - Filtre apenas as anestesias que contêm esse nome de hospital
+   - Dentre as filtradas, escolha a que melhor corresponde ao tipo de cirurgia:
+     • Se a cirurgia é "Costal" ou "com costela" → prefira anestesia com "Costal" no nome, senão "Rino"
+     • Se a cirurgia é "Septal" ou "sem costela" → prefira anestesia com "Rino" ou "Septal" no nome
+     • Sempre escolha a opção com MAIOR consistência de palavras-chave
+
+c) Se o admin mencionar APENAS o hospital (sem especificar anestesia), INFIRA automaticamente a anestesia correta do mesmo hospital, baseada no tipo de cirurgia.
+
+d) Se o admin NÃO mencionar hospital NEM anestesia, mas mencionar o tipo de cirurgia, escolha o hospital e anestesia PADRÃO mais comum para aquele tipo (se houver variável marcada como PADRÃO).
+
+e) Se o admin mencionar apenas "hospital santa marta" para uma "rinoplastia com costela":
+   → Hospital: buscar a opção com "Santa Marta" E "Costal" ou "Rino-Costal"
+   → Anestesia: buscar a opção com "Santa Marta" E "Rino" (ou "Rino-Costal" se existir)
 
 MENSAGEM DO ADMIN:
 "${message.trim()}"
