@@ -98,56 +98,93 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
         </p>
       ) : (
         <>
-          {/* ══════ TABELA DESKTOP ══════ */}
+          {/* ══════ GRID DESKTOP ══════ */}
           <div className="budget-table-desktop">
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--glass-border)', opacity: 0.7 }}>
-                  <th style={{ padding: '1rem 0' }}>Data</th>
-                  <th style={{ padding: '1rem 0' }}>Paciente</th>
-                  <th style={{ padding: '1rem 0' }}>Procedimento</th>
-                  <th style={{ padding: '1rem 0' }}>Valor Total</th>
-                  <th style={{ padding: '1rem 0' }}>Status</th>
-                  <th style={{ padding: '1rem 0', textAlign: 'right' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {budgets.map(budget => (
-                  <tr key={budget.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '1.25rem 0', opacity: 0.8 }}>
-                      {new Date(budget.createdAt).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td style={{ padding: '1.25rem 0' }}>
-                      <div style={{ fontWeight: 600 }}>{budget.patientName}</div>
-                      <div style={{ fontSize: '0.85rem', opacity: 0.6 }}>{budget.patientWhatsApp || budget.patientEmail || "-"}</div>
-                    </td>
-                    <td style={{ padding: '1.25rem 0' }}>{budget.surgeryType}</td>
-                    <td style={{ padding: '1.25rem 0', fontWeight: 600 }}>
-                      R$ {budget.totalPrice.toLocaleString('pt-BR')}
-                    </td>
-                    <td style={{ padding: '1.25rem 0' }}>
-                      {getStatusBadge(budget.status)}
-                    </td>
-                    <td style={{ padding: '1.25rem 0', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <Link href={`/admin/orcamentos/novo?cloneId=${budget.id}`} className="btn-secondary" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Duplicar">
-                          <span style={{ fontSize: '1rem' }}>📄</span>
-                        </Link>
-                        <Link href={`/orcamento/${budget.magicLinkId}`} target="_blank" className="btn-secondary" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Visualizar">
-                          <Eye size={18} />
-                        </Link>
-                        <button onClick={() => handleCopyLink(budget.magicLinkId)} className="btn-secondary" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Copiar Link">
-                          {copiedId === budget.magicLinkId ? <span style={{ fontSize: '0.8rem', color: 'var(--success)' }}>✓</span> : <Link2 size={18} />}
-                        </button>
-                        <button onClick={() => setDeleteId(budget.id)} className="btn-danger" style={{ padding: '0.5rem', minHeight: 'auto' }} title="Excluir">
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/* Header Row */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '90px 1fr 1.5fr 100px 130px 150px',
+              gap: '1.5rem',
+              padding: '0.75rem 1.25rem',
+              borderBottom: '2px solid var(--glass-border)',
+              fontSize: '0.8rem',
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.06em',
+              opacity: 0.6,
+              fontWeight: 600,
+            }}>
+              <span>Data</span>
+              <span>Paciente</span>
+              <span>Procedimento</span>
+              <span>Valor</span>
+              <span>Status</span>
+              <span style={{ textAlign: 'right' }}>Ações</span>
+            </div>
+
+            {/* Data Rows */}
+            {budgets.map(budget => (
+              <div
+                key={budget.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '90px 1fr 1.5fr 100px 130px 150px',
+                  gap: '1.5rem',
+                  padding: '1.1rem 1.25rem',
+                  borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  alignItems: 'center',
+                  transition: 'background 0.15s ease',
+                  cursor: 'default',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                {/* Data */}
+                <span style={{ opacity: 0.6, fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                  {new Date(budget.createdAt).toLocaleDateString('pt-BR')}
+                </span>
+
+                {/* Paciente */}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.95rem' }} title={budget.patientName}>
+                    {budget.patientName}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', opacity: 0.45, marginTop: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={budget.patientWhatsApp || budget.patientEmail || "-"}>
+                    {budget.patientWhatsApp || budget.patientEmail || "-"}
+                  </div>
+                </div>
+
+                {/* Procedimento */}
+                <div style={{ fontSize: '0.88rem', opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={budget.surgeryType}>
+                  {budget.surgeryType}
+                </div>
+
+                {/* Valor */}
+                <span style={{ fontWeight: 600, whiteSpace: 'nowrap', fontSize: '0.92rem' }}>
+                  R$ {budget.totalPrice.toLocaleString('pt-BR')}
+                </span>
+
+                {/* Status */}
+                <div>
+                  {getStatusBadge(budget.status)}
+                </div>
+
+                {/* Ações */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem' }}>
+                  <Link href={`/admin/orcamentos/novo?cloneId=${budget.id}`} className="btn-secondary" style={{ padding: '0.4rem', minHeight: 'auto' }} title="Duplicar">
+                    <span style={{ fontSize: '0.95rem' }}>📄</span>
+                  </Link>
+                  <Link href={`/orcamento/${budget.magicLinkId}`} target="_blank" className="btn-secondary" style={{ padding: '0.4rem', minHeight: 'auto' }} title="Visualizar">
+                    <Eye size={15} />
+                  </Link>
+                  <button onClick={() => handleCopyLink(budget.magicLinkId)} className="btn-secondary" style={{ padding: '0.4rem', minHeight: 'auto' }} title="Copiar Link">
+                    {copiedId === budget.magicLinkId ? <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>✓</span> : <Link2 size={15} />}
+                  </button>
+                  <button onClick={() => setDeleteId(budget.id)} className="btn-danger" style={{ padding: '0.4rem', minHeight: 'auto' }} title="Excluir">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* ══════ CARDS MOBILE ══════ */}

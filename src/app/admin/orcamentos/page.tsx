@@ -16,7 +16,7 @@ export default async function OrcamentosDashboard() {
   const totalBudgets = budgets?.length || 0;
 
   return (
-    <main className="container" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <main className="container" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1400px' }}>
       
       {/* Botão Home */}
       <Link href="/" style={{ 
