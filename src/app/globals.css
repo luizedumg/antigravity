@@ -355,6 +355,19 @@ select.input-field option {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
+.metric-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  border-radius: 12px;
+  transition: transform 0.25s ease;
+}
+
+.metric-card-link:hover .metric-card {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.15);
+}
+
 .metric-icon {
   width: 48px;
   height: 48px;

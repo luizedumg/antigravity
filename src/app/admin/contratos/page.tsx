@@ -44,11 +44,8 @@ export default async function ContratosDashboard() {
 
         {/* MÉTRICAS — clicáveis, direcionam ao histórico filtrado */}
         <div className="metrics-grid" style={{ width: '100%' }}>
-          <Link href="/admin/historico" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="metric-card" style={{ cursor: 'pointer', transition: 'all 0.25s ease' }}
-              onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.15)'; }}
-              onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-            >
+          <Link href="/admin/historico" className="metric-card-link">
+            <div className="metric-card">
               <div className="metric-icon" style={{ background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)' }}>📄</div>
               <div className="metric-info">
                 <span className="metric-value">{metrics.total}</span>
@@ -57,11 +54,8 @@ export default async function ContratosDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/historico?status=PENDENTE" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="metric-card" style={{ cursor: 'pointer', transition: 'all 0.25s ease' }}
-              onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(37, 99, 235, 0.15)'; }}
-              onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-            >
+          <Link href="/admin/historico?status=PENDENTE" className="metric-card-link">
+            <div className="metric-card">
               <div className="metric-icon" style={{ background: 'rgba(37, 99, 235, 0.1)', color: 'var(--primary)' }}>⏳</div>
               <div className="metric-info">
                 <span className="metric-value">{metrics.pendentes}</span>
@@ -70,11 +64,8 @@ export default async function ContratosDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/historico?status=VISUALIZADO" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="metric-card" style={{ cursor: 'pointer', transition: 'all 0.25s ease' }}
-              onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(245, 158, 11, 0.15)'; }}
-              onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-            >
+          <Link href="/admin/historico?status=VISUALIZADO" className="metric-card-link">
+            <div className="metric-card">
               <div className="metric-icon" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)' }}>👁️</div>
               <div className="metric-info">
                 <span className="metric-value">{metrics.visualizados}</span>
@@ -83,11 +74,8 @@ export default async function ContratosDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/historico?status=ASSINADO" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="metric-card" style={{ cursor: 'pointer', transition: 'all 0.25s ease' }}
-              onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.15)'; }}
-              onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-            >
+          <Link href="/admin/historico?status=ASSINADO" className="metric-card-link">
+            <div className="metric-card">
               <div className="metric-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>✅</div>
               <div className="metric-info">
                 <span className="metric-value">{metrics.assinados}</span>
