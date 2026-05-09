@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getContracts, getDistinctSurgeryTypes } from '@/actions/historico';
 import { deleteContractById } from '@/actions/contracts';
@@ -43,10 +44,13 @@ const STATUS_CONFIG: Record<string, { className: string; label: string; icon: st
   RECUSADO:           { className: 'status-badge status-badge--recusado',    label: 'Recusado',                 icon: '❌', borderColor: '#ef4444' },
 };
 
-export default function HistoricoPage() {
+function HistoricoContent() {
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get('status') || 'TODOS';
+
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [surgeryTypes, setSurgeryTypes] = useState<string[]>([]);
-  const [filterStatus, setFilterStatus] = useState('TODOS');
+  const [filterStatus, setFilterStatus] = useState(initialStatus);
   const [filterSurgery, setFilterSurgery] = useState('TODOS');
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -406,5 +410,19 @@ export default function HistoricoPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function HistoricoPage() {
+  return (
+    <Suspense fallback={
+      <main className="container">
+        <div className="glass-panel animate-fade-in" style={{ marginTop: '5vh', textAlign: 'center', padding: '3rem' }}>
+          <p className="animate-pulse" style={{ opacity: 0.7 }}>Carregando histórico...</p>
+        </div>
+      </main>
+    }>
+      <HistoricoContent />
+    </Suspense>
   );
 }
