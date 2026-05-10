@@ -188,67 +188,34 @@ export async function checkZapsignDocumentStatus(contractId: string) {
     
     if (!response.ok) return null;
     const data = await response.json();
-    
-    const { sendStatusNotification } = await import('./whatsapp');
-    const patientName = contract.patientName;
-    const surgeryType = contract.surgeryType;
 
     // ── TOTALMENTE ASSINADO ──
     if (data.status === 'signed' && !['ASSINADO', 'DRIVE_OK'].includes(contract.status)) {
-       await prisma.contract.update({
-         where: { id: contractId },
-         data: { status: 'ASSINADO' }
-       });
-
-       console.log(`[Polling] ✅ Contrato ${contractId} → ASSINADO`);
-
-       // Notificar médico via WhatsApp
-       await sendStatusNotification({
-         patientName, surgeryType,
-         event: 'ASSINADO'
-       });
-
-       // Tentar upload para o Drive se ainda não foi feito
-       if (!contract.googleDriveFileId) {
-         const { uploadSignedPdfToDrive } = await import('./googledrive');
-         uploadSignedPdfToDrive(contractId)
-           .then(async (result) => {
-             if (result.success) {
-               console.log(`[Polling Fallback] ✅ PDF salvo no Drive: ${result.fileId}`);
-               await prisma.contract.update({
-                 where: { id: contractId },
-                 data: { status: 'DRIVE_OK' }
-               });
-               // Notificar médico que o PDF foi salvo no Drive
-               await sendStatusNotification({
-                 patientName, surgeryType,
-                 event: 'DRIVE_OK'
-               });
-             }
-           })
-           .catch(err => console.error('[Polling Fallback] Erro:', err));
+       // Re-ler o contrato para evitar race condition com o webhook
+       const fresh = await prisma.contract.findUnique({ where: { id: contractId } });
+       if (fresh && !['ASSINADO', 'DRIVE_OK'].includes(fresh.status)) {
+         await prisma.contract.update({
+           where: { id: contractId },
+           data: { status: 'ASSINADO' }
+         });
+         console.log(`[Polling] ✅ Contrato ${contractId} → ASSINADO (fallback — webhook não processou)`);
        }
     }
     // ── ASSINATURA PARCIAL (algum signatário assinou, mas não todos) ──
     else if (data.status !== 'signed' && !['ASSINADO', 'DRIVE_OK', 'ASSINATURA_PARCIAL'].includes(contract.status)) {
-      // Verificar se pelo menos um signatário já assinou
       const signers = data.signers || [];
       const signedSigners = signers.filter((s: any) => s.status === 'signed');
       
       if (signedSigners.length > 0 && signedSigners.length < signers.length) {
-        await prisma.contract.update({
-          where: { id: contractId },
-          data: { status: 'ASSINATURA_PARCIAL' }
-        });
-
-        const signerName = signedSigners.map((s: any) => s.name).join(', ');
-        console.log(`[Polling] ✍️ Contrato ${contractId} → ASSINATURA_PARCIAL (${signerName})`);
-
-        await sendStatusNotification({
-          patientName, surgeryType,
-          event: 'ASSINATURA_PARCIAL',
-          signerName
-        });
+        // Re-ler para evitar race condition
+        const fresh = await prisma.contract.findUnique({ where: { id: contractId } });
+        if (fresh && !['ASSINADO', 'DRIVE_OK', 'ASSINATURA_PARCIAL'].includes(fresh.status)) {
+          await prisma.contract.update({
+            where: { id: contractId },
+            data: { status: 'ASSINATURA_PARCIAL' }
+          });
+          console.log(`[Polling] ✍️ Contrato ${contractId} → ASSINATURA_PARCIAL (fallback)`);
+        }
       }
     }
 
