@@ -361,6 +361,11 @@ select.input-field option {
   display: block;
   border-radius: 12px;
   transition: transform 0.25s ease;
+  height: 100%;
+}
+
+.metric-card-link .metric-card {
+  height: 100%;
 }
 
 .metric-card-link:hover .metric-card {

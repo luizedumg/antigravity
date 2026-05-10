@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getTemplates } from '@/actions/templates';
 import Link from 'next/link';
+import { Home } from 'lucide-react';
 import { createContractDraft as createContract, updateContractStatus } from '@/actions/contracts';
 import { sendWhatsAppMessage, sendStatusNotification } from '@/actions/whatsapp';
 
@@ -131,7 +132,19 @@ export default function NovoLinkPaciente() {
 
   return (
     <main className="container">
-      <div className="glass-panel" style={{ marginTop: '5vh', maxWidth: '650px', margin: '5vh auto' }}>
+      {/* BOTÃO HOME */}
+      <div style={{ marginTop: '1rem' }}>
+        <Link href="/" style={{ 
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+          opacity: 0.5, fontSize: '0.85rem', color: 'inherit', textDecoration: 'none',
+          transition: 'opacity 0.2s',
+        }}>
+          <Home size={16} />
+          Início
+        </Link>
+      </div>
+
+      <div className="glass-panel" style={{ maxWidth: '650px', margin: '1rem auto' }}>
         <h1 style={{ color: 'var(--primary)' }}>Gerar Link para Paciente</h1>
         <p style={{ opacity: 0.8, marginBottom: '2rem' }}>Crie um contrato em rascunho e gere a URL mágica preenchida para envio imediato ao paciente.</p>
         

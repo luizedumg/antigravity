@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { uploadTemplateDocx } from '@/actions/upload';
 import { getApiKeyStatus, saveApiKey, deleteApiKey } from '@/actions/apikeys';
 import Link from 'next/link';
+import { Home } from 'lucide-react';
 
 type KeyStatus = Record<string, { exists: boolean; masked: string }>;
 
@@ -173,7 +174,19 @@ export default function NovoTemplate() {
 
   return (
     <main className="container">
-      <div className="glass-panel" style={{ marginTop: '5vh', position: 'relative' }}>
+      {/* BOTÃO HOME */}
+      <div style={{ marginTop: '1rem' }}>
+        <Link href="/" style={{ 
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+          opacity: 0.5, fontSize: '0.85rem', color: 'inherit', textDecoration: 'none',
+          transition: 'opacity 0.2s',
+        }}>
+          <Home size={16} />
+          Início
+        </Link>
+      </div>
+
+      <div className="glass-panel" style={{ marginTop: '1rem', position: 'relative' }}>
 
         {/* Botão de Ajuda */}
         <button

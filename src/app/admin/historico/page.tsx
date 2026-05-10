@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Home } from 'lucide-react';
 import { getContracts, getDistinctSurgeryTypes } from '@/actions/historico';
 import { deleteContractById } from '@/actions/contracts';
 import { checkZapsignDocumentStatus } from '@/actions/zapsign';
@@ -230,7 +231,19 @@ function HistoricoContent() {
 
   return (
     <main className="container">
-      <div className="glass-panel animate-fade-in" style={{ marginTop: '5vh' }}>
+      {/* BOTÃO HOME */}
+      <div style={{ marginTop: '1rem' }}>
+        <Link href="/" style={{ 
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+          opacity: 0.5, fontSize: '0.85rem', color: 'inherit', textDecoration: 'none',
+          transition: 'opacity 0.2s',
+        }}>
+          <Home size={16} />
+          Início
+        </Link>
+      </div>
+
+      <div className="glass-panel animate-fade-in" style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ color: 'var(--primary)', margin: 0 }}>Histórico de Contratos</h1>

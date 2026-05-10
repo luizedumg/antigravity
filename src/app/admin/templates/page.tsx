@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { getTemplates, deleteTemplate } from '@/actions/templates';
+import { Home } from 'lucide-react';
 
 type Template = {
   id: string;
@@ -93,7 +94,19 @@ export default function TemplatesPage() {
 
   return (
     <main className="container">
-      <div className="glass-panel animate-fade-in" style={{ marginTop: '5vh' }}>
+      {/* BOTÃO HOME */}
+      <div style={{ marginTop: '1rem' }}>
+        <Link href="/" style={{ 
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+          opacity: 0.5, fontSize: '0.85rem', color: 'inherit', textDecoration: 'none',
+          transition: 'opacity 0.2s',
+        }}>
+          <Home size={16} />
+          Início
+        </Link>
+      </div>
+
+      <div className="glass-panel animate-fade-in" style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h1 style={{ color: 'var(--primary)', margin: 0 }}>Modelos de Cirurgia</h1>
           <Link href="/admin/templates/novo" className="btn-primary">
