@@ -257,7 +257,8 @@ export async function checkZapsignDocumentStatus(contractId: string) {
       signedFileUrl: data.signed_file || null,
       signers: (data.signers || []).map((s: any) => ({
         name: s.name,
-        status: s.status
+        status: s.status,
+        sign_url: s.sign_url || null
       }))
     };
   } catch (err) {
@@ -266,3 +267,50 @@ export async function checkZapsignDocumentStatus(contractId: string) {
   }
 }
 
+/**
+ * Busca a URL de assinatura do médico (Dr. Luiz Eduardo Mamede) na ZapSign.
+ * Retorna a sign_url do signer do médico, permitindo assinatura direta do painel admin.
+ */
+export async function getDoctorSignUrl(contractId: string): Promise<{ success: boolean; signUrl?: string; error?: string; doctorStatus?: string }> {
+  const contract = await prisma.contract.findUnique({ where: { id: contractId } });
+  if (!contract || !contract.zapsignToken) {
+    return { success: false, error: 'Contrato não possui documento na ZapSign.' };
+  }
+
+  try {
+    const response = await fetch(`https://api.zapsign.com.br/api/v1/docs/${contract.zapsignToken}/?api_token=${ZAPSIGN_TOKEN}`, {
+      method: 'GET'
+    });
+
+    if (!response.ok) {
+      return { success: false, error: 'Erro ao consultar ZapSign.' };
+    }
+
+    const data = await response.json();
+    const signers = data.signers || [];
+
+    // Encontrar o signer do médico pelo nome
+    const doctorSigner = signers.find((s: any) =>
+      s.name.toUpperCase().includes('LUIZ EDUARDO MAMEDE') ||
+      s.name.toUpperCase().includes('MÉDICO') ||
+      s.name.toUpperCase().includes('MEDICO')
+    );
+
+    if (!doctorSigner) {
+      return { success: false, error: 'Signatário do médico não encontrado neste documento.' };
+    }
+
+    if (doctorSigner.status === 'signed') {
+      return { success: false, error: 'O médico já assinou este contrato.', doctorStatus: 'signed' };
+    }
+
+    if (!doctorSigner.sign_url) {
+      return { success: false, error: 'URL de assinatura não disponível.' };
+    }
+
+    return { success: true, signUrl: doctorSigner.sign_url, doctorStatus: doctorSigner.status };
+  } catch (err) {
+    console.error('[getDoctorSignUrl] Erro:', err);
+    return { success: false, error: 'Falha na conexão com ZapSign.' };
+  }
+}

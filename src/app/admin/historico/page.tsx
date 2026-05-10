@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Home } from 'lucide-react';
 import { getContracts, getDistinctSurgeryTypes } from '@/actions/historico';
 import { deleteContractById } from '@/actions/contracts';
-import { checkZapsignDocumentStatus } from '@/actions/zapsign';
+import { checkZapsignDocumentStatus, getDoctorSignUrl } from '@/actions/zapsign';
 
 type Contract = {
   id: string;
@@ -120,6 +120,7 @@ function HistoricoContent() {
   };
 
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [signingId, setSigningId] = useState<string | null>(null);
 
   const handleCheckStatus = async (contractId: string) => {
     setCheckingId(contractId);
@@ -141,6 +142,25 @@ function HistoricoContent() {
       alert('PDF assinado ainda não está disponível. O status foi verificado.');
       await loadContracts();
     }
+  };
+
+  const handleDoctorSign = async (contractId: string) => {
+    setSigningId(contractId);
+    try {
+      const res = await getDoctorSignUrl(contractId);
+      if (res.success && res.signUrl) {
+        window.open(res.signUrl, '_blank');
+      } else if (res.doctorStatus === 'signed') {
+        alert('✅ O médico já assinou este contrato.');
+        await loadContracts();
+      } else {
+        alert(res.error || 'Não foi possível obter o link de assinatura.');
+      }
+    } catch (e) {
+      console.error('Erro ao buscar URL de assinatura:', e);
+      alert('Erro ao conectar com ZapSign.');
+    }
+    setSigningId(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -366,6 +386,33 @@ function HistoricoContent() {
                     }}
                   >
                     {checkingId === contract.id ? '⏳ Verificando...' : '🔄 Verificar'}
+                  </button>
+                )}
+
+                {/* Assinatura do Médico — para contratos com ZapSign que ainda não foram totalmente assinados */}
+                {contract.zapsignToken && !['ASSINADO', 'DRIVE_OK', 'RECUSADO'].includes(contract.status) && (
+                  <button
+                    onClick={() => handleDoctorSign(contract.id)}
+                    disabled={signingId === contract.id}
+                    title="Abrir link para o médico assinar"
+                    style={{
+                      padding: '0.5rem 1rem', fontSize: '0.85rem', minHeight: '40px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(139, 92, 246, 0.4)',
+                      background: 'rgba(139, 92, 246, 0.1)',
+                      color: '#8b5cf6',
+                      cursor: signingId === contract.id ? 'wait' : 'pointer',
+                      fontWeight: 600,
+                      fontFamily: 'var(--font-base)',
+                      transition: 'all 0.2s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                    onMouseEnter={e => { if (signingId !== contract.id) { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)'; e.currentTarget.style.transform = ''; }}
+                  >
+                    {signingId === contract.id ? '⏳ Abrindo...' : '✍️ Assinar (Médico)'}
                   </button>
                 )}
 
