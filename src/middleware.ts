@@ -10,6 +10,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/api/webhook') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/ai') ||
+    pathname.startsWith('/api/integration') ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
