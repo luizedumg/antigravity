@@ -1,12 +1,38 @@
 "use client";
 
-import { Download, CheckCircle2, Calendar } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Download, CheckCircle2, Calendar, ArrowLeft } from "lucide-react";
 
 export default function BudgetClientView({ budget }: { budget: any }) {
   const variables = JSON.parse(budget.variablesSelectedJson || "[]");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsAdmin(document.cookie.includes("admin_auth=authenticated"));
+    }
+  }, []);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleCloseOrBack = () => {
+    // Tenta fechar a aba/janela atual (caso tenha sido aberta com target="_blank")
+    window.close();
+    
+    // Fallback se a janela não fechar
+    setTimeout(() => {
+      if (isAdmin) {
+        window.location.href = "/admin/orcamentos";
+      } else {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = "/";
+        }
+      }
+    }, 150);
   };
 
   return (
@@ -309,6 +335,49 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           }
         }
       `}} />
+
+      {/* Botão de Fechar / Voltar */}
+      <div className="hide-on-print" style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-start', 
+        alignItems: 'center', 
+        width: '100%', 
+        marginBottom: '1rem',
+        padding: '0 0.5rem'
+      }}>
+        <button 
+          onClick={handleCloseOrBack}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: '#0a0a0a',
+            color: 'white',
+            padding: '0.65rem 1.3rem',
+            borderRadius: '50px',
+            fontWeight: 500,
+            fontSize: '0.9rem',
+            border: '1px solid rgba(255,255,255,0.15)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            outline: 'none',
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = '#1a1a1a';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.15)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = '#0a0a0a';
+            e.currentTarget.style.transform = 'none';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+          }}
+        >
+          <ArrowLeft size={16} />
+          {isAdmin ? "Voltar ao Painel" : "Voltar"}
+        </button>
+      </div>
 
       <div className="budget-print-container">
         
