@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════
-# Dockerfile — Antigravity (Next.js + Prisma + SQLite)
+# Dockerfile — LEM app (Next.js + Prisma + SQLite)
 # Deploy via Coolify na VPS
 # ══════════════════════════════════════════════════════════════
 
