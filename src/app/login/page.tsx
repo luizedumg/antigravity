@@ -57,6 +57,7 @@ export default function LoginPage() {
           <img 
             src="/logo.png" 
             alt="Logo" 
+            className="login-logo"
             style={{ maxHeight: '80px', objectFit: 'contain', marginBottom: '1rem' }} 
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />

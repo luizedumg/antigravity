@@ -30,6 +30,18 @@
   }
 }
 
+/* Login logo: white-on-transparent image needs inversion in light mode */
+.login-logo {
+  filter: brightness(0) saturate(100%) invert(10%) sepia(20%) saturate(500%) hue-rotate(190deg);
+  transition: filter 0.3s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .login-logo {
+    filter: none;
+  }
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
