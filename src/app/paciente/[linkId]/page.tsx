@@ -8,6 +8,39 @@ import { sendPatientAlerts } from '@/actions/alerts';
 import { sendWhatsAppSignatureLinks } from '@/actions/whatsapp';
 import { useParams } from 'next/navigation';
 
+// ══════ Helpers de CPF ══════
+function formatCpf(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+}
+
+function validateCpf(cpf: string): boolean {
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11) return false;
+  // Rejeita CPFs com todos os dígitos iguais (ex: 111.111.111-11)
+  if (/^(\d)\1{10}$/.test(d)) return false;
+  // Primeiro dígito verificador
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(d[i]) * (10 - i);
+  let check = 11 - (sum % 11);
+  if (check >= 10) check = 0;
+  if (parseInt(d[9]) !== check) return false;
+  // Segundo dígito verificador
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(d[i]) * (11 - i);
+  check = 11 - (sum % 11);
+  if (check >= 10) check = 0;
+  if (parseInt(d[10]) !== check) return false;
+  return true;
+}
+
+function isCpfQuestion(q: any): boolean {
+  return q.key.toLowerCase().includes('cpf') || q.label.toLowerCase().includes('cpf');
+}
+
 export default function WizardPaciente() {
   const params = useParams();
   const linkId = params.linkId as string;
@@ -82,12 +115,22 @@ export default function WizardPaciente() {
       if (!dynamicAnswers[q.key] || dynamicAnswers[q.key].trim() === '') {
         return alert(`Por favor, preencha o campo obrigatório: ${q.label}`);
       }
+      // Validação algorítmica do CPF (dígitos verificadores)
+      if (isCpfQuestion(q) && !validateCpf(dynamicAnswers[q.key])) {
+        return alert('O CPF informado é inválido. Por favor, verifique os números digitados.\n\nDica: o CPF deve ter exatamente 11 dígitos numéricos.');
+      }
     }
 
     setLoading(true);
     try {
-      // Salva os dados na base de dados (o endereço nativo ficará vazio se não quisermos)
-      await updateContractData(linkId, "", dynamicAnswers);
+      // Formata CPFs com pontos e traço antes de salvar (para aparecer correto no documento)
+      const formattedAnswers = { ...dynamicAnswers };
+      for (const q of questionsList) {
+        if (isCpfQuestion(q) && formattedAnswers[q.key]) {
+          formattedAnswers[q.key] = formatCpf(formattedAnswers[q.key]);
+        }
+      }
+      await updateContractData(linkId, "", formattedAnswers);
       
       // Enviar alertas ao médico sobre respostas críticas (imagem, alergias, drogas, doenças)
       const questionsList2 = template?.questionsJson ? JSON.parse(template.questionsJson) : [];
@@ -180,12 +223,52 @@ export default function WizardPaciente() {
                  <p style={{ opacity: 0.8, marginBottom: '2rem', fontStyle: 'italic' }}>* Nenhum dado complementar exigido para esta cirurgia.</p>
               ) : questions.map((q: any, i: number) => {
                  const isBooleanField = q.type === 'boolean' || q.label.toLowerCase().includes('imagem') || q.key.toLowerCase().includes('imagem');
+                 const cpfField = isCpfQuestion(q);
+                 const cpfRaw = dynamicAnswers[q.key] || '';
                  return (
                 <div key={i} className="form-group" style={{ marginBottom: '1.5rem' }}>
                   <label className="label" style={{ fontSize: '1rem', color: 'var(--foreground)' }}>
                     {q.label} <span style={{ color: 'red', fontWeight: 'bold' }}>*</span>
                   </label>
-                  {isBooleanField ? (
+                  {cpfField ? (
+                    /* ══════ CAMPO CPF COM MÁSCARA E VALIDAÇÃO ══════ */
+                    <div>
+                      <input 
+                        className="input-field" 
+                        value={formatCpf(cpfRaw)}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/\D/g, '').slice(0, 11);
+                          handleAnswerChange(q.key, raw);
+                        }}
+                        placeholder="000.000.000-00"
+                        inputMode="numeric"
+                        maxLength={14}
+                        style={{ 
+                          padding: '1rem',
+                          borderColor: cpfRaw.length === 11 
+                            ? (validateCpf(cpfRaw) ? '#10b981' : '#ef4444') 
+                            : undefined,
+                          borderWidth: cpfRaw.length === 11 ? '2px' : undefined,
+                          transition: 'border-color 0.3s ease',
+                        }}
+                      />
+                      {cpfRaw.length > 0 && cpfRaw.length < 11 && (
+                        <span style={{ color: '#f59e0b', fontSize: '0.8rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          ⚠️ Faltam {11 - cpfRaw.length} dígito(s)
+                        </span>
+                      )}
+                      {cpfRaw.length === 11 && validateCpf(cpfRaw) && (
+                        <span style={{ color: '#059669', fontSize: '0.85rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          ✅ CPF válido
+                        </span>
+                      )}
+                      {cpfRaw.length === 11 && !validateCpf(cpfRaw) && (
+                        <span style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          ❌ CPF inválido — verifique os números digitados
+                        </span>
+                      )}
+                    </div>
+                  ) : isBooleanField ? (
                     <select 
                       className="input-field" 
                       onChange={e => handleAnswerChange(q.key, e.target.value)}

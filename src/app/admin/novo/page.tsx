@@ -7,19 +7,33 @@ import { Home } from 'lucide-react';
 import { createContractDraft as createContract, updateContractStatus } from '@/actions/contracts';
 import { sendWhatsAppMessage, sendStatusNotification } from '@/actions/whatsapp';
 
-const COUNTRY_CODES = [
-  { code: '55', label: '🇧🇷 +55 (Brasil)', flag: '🇧🇷' },
-  { code: '1', label: '🇺🇸 +1 (EUA/Canadá)', flag: '🇺🇸' },
-  { code: '351', label: '🇵🇹 +351 (Portugal)', flag: '🇵🇹' },
-  { code: '54', label: '🇦🇷 +54 (Argentina)', flag: '🇦🇷' },
-  { code: '598', label: '🇺🇾 +598 (Uruguai)', flag: '🇺🇾' },
-  { code: '595', label: '🇵🇾 +595 (Paraguai)', flag: '🇵🇾' },
-  { code: '56', label: '🇨🇱 +56 (Chile)', flag: '🇨🇱' },
-  { code: '57', label: '🇨🇴 +57 (Colômbia)', flag: '🇨🇴' },
-  { code: '34', label: '🇪🇸 +34 (Espanha)', flag: '🇪🇸' },
-  { code: '39', label: '🇮🇹 +39 (Itália)', flag: '🇮🇹' },
-  { code: '44', label: '🇬🇧 +44 (Reino Unido)', flag: '🇬🇧' },
-  { code: '49', label: '🇩🇪 +49 (Alemanha)', flag: '🇩🇪' },
+// Configuração inteligente por país: formato, validação, placeholders e exemplos
+interface CountryConfig {
+  code: string;
+  label: string;
+  flag: string;
+  hasSeparateDDD: boolean;
+  dddDigits?: number;
+  dddPlaceholder?: string;
+  phoneMin: number;
+  phoneMax: number;
+  phonePlaceholder: string;
+  example: string;
+}
+
+const COUNTRY_CONFIGS: CountryConfig[] = [
+  { code: '55',  label: '🇧🇷 +55 (Brasil)',      flag: '🇧🇷', hasSeparateDDD: true,  dddDigits: 2, dddPlaceholder: '31', phoneMin: 8,  phoneMax: 9,  phonePlaceholder: '999887766',  example: '(31) 99988-7766' },
+  { code: '1',   label: '🇺🇸 +1 (EUA/Canadá)',    flag: '🇺🇸', hasSeparateDDD: false, phoneMin: 10, phoneMax: 10, phonePlaceholder: '3105551234',  example: '(310) 555-1234' },
+  { code: '351', label: '🇵🇹 +351 (Portugal)',     flag: '🇵🇹', hasSeparateDDD: false, phoneMin: 9,  phoneMax: 9,  phonePlaceholder: '912345678',   example: '912 345 678' },
+  { code: '54',  label: '🇦🇷 +54 (Argentina)',     flag: '🇦🇷', hasSeparateDDD: false, phoneMin: 10, phoneMax: 10, phonePlaceholder: '1155551234',  example: '11 5555-1234' },
+  { code: '598', label: '🇺🇾 +598 (Uruguai)',      flag: '🇺🇾', hasSeparateDDD: false, phoneMin: 8,  phoneMax: 9,  phonePlaceholder: '99123456',    example: '99 123 456' },
+  { code: '595', label: '🇵🇾 +595 (Paraguai)',     flag: '🇵🇾', hasSeparateDDD: false, phoneMin: 9,  phoneMax: 9,  phonePlaceholder: '981123456',   example: '981 123 456' },
+  { code: '56',  label: '🇨🇱 +56 (Chile)',         flag: '🇨🇱', hasSeparateDDD: false, phoneMin: 9,  phoneMax: 9,  phonePlaceholder: '912345678',   example: '9 1234 5678' },
+  { code: '57',  label: '🇨🇴 +57 (Colômbia)',      flag: '🇨🇴', hasSeparateDDD: false, phoneMin: 10, phoneMax: 10, phonePlaceholder: '3101234567',  example: '310 123 4567' },
+  { code: '34',  label: '🇪🇸 +34 (Espanha)',       flag: '🇪🇸', hasSeparateDDD: false, phoneMin: 9,  phoneMax: 9,  phonePlaceholder: '612345678',   example: '612 345 678' },
+  { code: '39',  label: '🇮🇹 +39 (Itália)',        flag: '🇮🇹', hasSeparateDDD: false, phoneMin: 9,  phoneMax: 10, phonePlaceholder: '3123456789',  example: '312 345 6789' },
+  { code: '44',  label: '🇬🇧 +44 (Reino Unido)',   flag: '🇬🇧', hasSeparateDDD: false, phoneMin: 10, phoneMax: 10, phonePlaceholder: '7911123456',  example: '7911 123 456' },
+  { code: '49',  label: '🇩🇪 +49 (Alemanha)',      flag: '🇩🇪', hasSeparateDDD: false, phoneMin: 10, phoneMax: 11, phonePlaceholder: '15112345678', example: '1511 234 5678' },
 ];
 
 export default function NovoLinkPaciente() {
@@ -37,6 +51,9 @@ export default function NovoLinkPaciente() {
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [whatsappError, setWhatsappError] = useState('');
 
+  // Configuração ativa do país selecionado
+  const currentConfig = COUNTRY_CONFIGS.find(c => c.code === countryCode) || COUNTRY_CONFIGS[0];
+
   useEffect(() => {
     async function loadTemplates() {
       const data = await getTemplates();
@@ -48,17 +65,28 @@ export default function NovoLinkPaciente() {
     loadTemplates();
   }, []);
 
-  const fullWhatsAppNumber = `${countryCode}${ddd}${phoneNumber}`;
+  const fullWhatsAppNumber = currentConfig.hasSeparateDDD 
+    ? `${countryCode}${ddd}${phoneNumber}` 
+    : `${countryCode}${phoneNumber}`;
 
   const handleGenerate = async () => {
     if (!patientName.trim()) {
       return alert("Preencha o nome do paciente.");
     }
-    if (!ddd || ddd.length < 2) {
-      return alert("Informe o DDD com 2 dígitos.");
+    // Validação adaptativa por país
+    if (currentConfig.hasSeparateDDD) {
+      if (!ddd || ddd.length < (currentConfig.dddDigits || 2)) {
+        return alert(`Informe o DDD com ${currentConfig.dddDigits || 2} dígitos.`);
+      }
     }
-    if (!phoneNumber || phoneNumber.length < 8) {
-      return alert("Informe o número do telefone com pelo menos 8 dígitos.");
+    if (!phoneNumber || phoneNumber.length < currentConfig.phoneMin) {
+      const range = currentConfig.phoneMin === currentConfig.phoneMax 
+        ? `${currentConfig.phoneMin}` 
+        : `${currentConfig.phoneMin} a ${currentConfig.phoneMax}`;
+      return alert(`Número inválido para ${currentConfig.flag} +${currentConfig.code}.\nInforme ${range} dígitos.\n\nEx: ${currentConfig.example}`);
+    }
+    if (phoneNumber.length > currentConfig.phoneMax) {
+      return alert(`Número muito longo para ${currentConfig.flag} +${currentConfig.code}.\nMáximo: ${currentConfig.phoneMax} dígitos.\n\nEx: ${currentConfig.example}`);
     }
     if (!surgeryType) {
       return alert("Selecione um modelo de contrato.");
@@ -119,15 +147,28 @@ export default function NovoLinkPaciente() {
   };
 
   const formatPhoneDisplay = () => {
-    const country = COUNTRY_CODES.find(c => c.code === countryCode);
-    const flag = country?.flag || '📱';
-    if (countryCode === '55' && ddd.length === 2 && phoneNumber.length >= 8) {
+    const flag = currentConfig.flag || '📱';
+    // Brasil: +55 (31) 99988-7766
+    if (currentConfig.hasSeparateDDD && ddd.length >= (currentConfig.dddDigits || 2) && phoneNumber.length >= currentConfig.phoneMin) {
       const formatted = phoneNumber.length === 9 
         ? `${phoneNumber.slice(0, 5)}-${phoneNumber.slice(5)}`
         : `${phoneNumber.slice(0, 4)}-${phoneNumber.slice(4)}`;
       return `${flag} +${countryCode} (${ddd}) ${formatted}`;
     }
-    return `${flag} +${countryCode} ${ddd} ${phoneNumber}`;
+    // EUA/Canadá: +1 (310) 555-1234
+    if (countryCode === '1' && phoneNumber.length === 10) {
+      return `${flag} +1 (${phoneNumber.slice(0,3)}) ${phoneNumber.slice(3,6)}-${phoneNumber.slice(6)}`;
+    }
+    // UK: +44 7911 123 456
+    if (countryCode === '44' && phoneNumber.length === 10) {
+      return `${flag} +44 ${phoneNumber.slice(0,4)} ${phoneNumber.slice(4,7)} ${phoneNumber.slice(7)}`;
+    }
+    // Genérico internacional: agrupa em blocos de 3 dígitos
+    if (!currentConfig.hasSeparateDDD && phoneNumber.length >= currentConfig.phoneMin) {
+      const formatted = phoneNumber.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
+      return `${flag} +${countryCode} ${formatted}`;
+    }
+    return `${flag} +${countryCode} ${phoneNumber}`;
   };
 
   return (
@@ -168,71 +209,101 @@ export default function NovoLinkPaciente() {
                   📱 Número do WhatsApp do Paciente
                 </span>
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 1fr', gap: '0.75rem', alignItems: 'start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: currentConfig.hasSeparateDDD ? '1fr 80px 1fr' : '1fr 1.5fr', gap: '0.75rem', alignItems: 'start' }}>
                 {/* Código do País */}
                 <div>
-                  <span style={{ fontSize: '0.78rem', opacity: 0.6, display: 'block', marginBottom: '0.3rem' }}>Código do País</span>
+                  <span style={{ fontSize: '0.78rem', opacity: 0.6, display: 'block', marginBottom: '0.3rem' }}>País</span>
                   <select 
                     className="input-field" 
                     value={countryCode} 
-                    onChange={e => setCountryCode(e.target.value)}
+                    onChange={e => {
+                      const newCode = e.target.value;
+                      const newConfig = COUNTRY_CONFIGS.find(c => c.code === newCode);
+                      if (!newConfig?.hasSeparateDDD) setDdd('');
+                      setPhoneNumber('');
+                      setCountryCode(newCode);
+                    }}
                     style={{ padding: '0.75rem 0.5rem' }}
                   >
-                    {COUNTRY_CODES.map(c => (
+                    {COUNTRY_CONFIGS.map(c => (
                       <option key={c.code} value={c.code}>{c.label}</option>
                     ))}
                   </select>
                 </div>
 
-                {/* DDD */}
-                <div>
-                  <span style={{ fontSize: '0.78rem', opacity: 0.6, display: 'block', marginBottom: '0.3rem' }}>DDD</span>
-                  <input 
-                    className="input-field" 
-                    value={ddd} 
-                    onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 3);
-                      setDdd(v);
-                    }}
-                    placeholder="31"
-                    maxLength={3}
-                    inputMode="numeric"
-                    style={{ textAlign: 'center' }}
-                  />
-                </div>
+                {/* DDD — apenas para Brasil */}
+                {currentConfig.hasSeparateDDD && (
+                  <div>
+                    <span style={{ fontSize: '0.78rem', opacity: 0.6, display: 'block', marginBottom: '0.3rem' }}>DDD</span>
+                    <input 
+                      className="input-field" 
+                      value={ddd} 
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, currentConfig.dddDigits || 2);
+                        setDdd(v);
+                      }}
+                      placeholder={currentConfig.dddPlaceholder || '31'}
+                      maxLength={currentConfig.dddDigits || 2}
+                      inputMode="numeric"
+                      style={{ textAlign: 'center' }}
+                    />
+                  </div>
+                )}
 
-                {/* Número */}
+                {/* Número do Telefone */}
                 <div>
-                  <span style={{ fontSize: '0.78rem', opacity: 0.6, display: 'block', marginBottom: '0.3rem' }}>Número do Telefone</span>
+                  <span style={{ fontSize: '0.78rem', opacity: 0.6, display: 'block', marginBottom: '0.3rem' }}>
+                    {currentConfig.hasSeparateDDD ? 'Número' : 'Número Completo (com DDD)'}
+                  </span>
                   <input 
                     className="input-field"
                     value={phoneNumber} 
                     onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 9);
+                      const v = e.target.value.replace(/\D/g, '').slice(0, currentConfig.phoneMax);
                       setPhoneNumber(v);
                     }}
-                    placeholder="999887766"
-                    maxLength={9}
+                    placeholder={currentConfig.phonePlaceholder}
+                    maxLength={currentConfig.phoneMax}
                     inputMode="numeric"
                   />
+                  {!currentConfig.hasSeparateDDD && (
+                    <span style={{ fontSize: '0.75rem', opacity: 0.45, marginTop: '0.35rem', display: 'block' }}>
+                      Ex: {currentConfig.example} ({currentConfig.phoneMin === currentConfig.phoneMax ? `${currentConfig.phoneMin} dígitos` : `${currentConfig.phoneMin} a ${currentConfig.phoneMax} dígitos`})
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Preview do número formatado */}
-              {ddd && phoneNumber && (
+              {/* Preview do número formatado — aparece quando quantidade mínima é atingida */}
+              {phoneNumber.length >= currentConfig.phoneMin && (!currentConfig.hasSeparateDDD || ddd.length >= (currentConfig.dddDigits || 2)) && (
                 <div style={{ 
                   marginTop: '0.75rem', 
                   padding: '0.5rem 1rem', 
-                  background: 'rgba(37, 99, 235, 0.06)', 
+                  background: 'rgba(16, 185, 129, 0.08)', 
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
                   borderRadius: '8px',
                   fontSize: '0.9rem',
-                  color: 'var(--primary)',
+                  color: '#059669',
                   fontWeight: 500,
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.5rem'
                 }}>
-                  {formatPhoneDisplay()}
+                  ✅ {formatPhoneDisplay()}
+                </div>
+              )}
+
+              {/* Indicador de progresso — mostra quantos dígitos faltam */}
+              {phoneNumber.length > 0 && phoneNumber.length < currentConfig.phoneMin && (
+                <div style={{ 
+                  marginTop: '0.5rem', 
+                  fontSize: '0.8rem', 
+                  color: 'var(--warning, #f59e0b)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}>
+                  ⚠️ Faltam {currentConfig.phoneMin - phoneNumber.length} dígito(s) — mínimo {currentConfig.phoneMin} para {currentConfig.flag} +{currentConfig.code}
                 </div>
               )}
             </div>
