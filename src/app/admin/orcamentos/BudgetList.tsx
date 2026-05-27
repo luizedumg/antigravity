@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { deleteBudget } from "@/actions/budgets";
-import { Trash2, Eye, Link2, Copy } from "lucide-react";
+import { Trash2, Eye, Link2, Copy, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -13,6 +13,7 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const confirmDelete = async () => {
     if (!deleteId) return;
@@ -51,6 +52,27 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
       </span>
     );
   };
+
+  // ══════ BUSCA UNIVERSAL ══════
+  // Filtra em tempo real por qualquer campo: nome, WhatsApp, email, procedimento, status, data, valor
+  const filteredBudgets = useMemo(() => {
+    if (!search.trim()) return budgets;
+    const terms = search.toLowerCase().trim().split(/\s+/);
+    return budgets.filter(budget => {
+      const searchableText = [
+        budget.patientName,
+        budget.patientWhatsApp,
+        budget.patientEmail,
+        budget.surgeryType,
+        budget.status,
+        new Date(budget.createdAt).toLocaleDateString('pt-BR'),
+        `R$ ${budget.totalPrice.toLocaleString('pt-BR')}`,
+        budget.totalPrice.toString(),
+      ].filter(Boolean).join(' ').toLowerCase();
+      // Todos os termos devem estar presentes (busca AND)
+      return terms.every(term => searchableText.includes(term));
+    });
+  }, [budgets, search]);
 
   return (
     <div>
@@ -92,9 +114,90 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
         </div>
       )}
 
-      {budgets.length === 0 ? (
+      {/* ══════ BARRA DE BUSCA UNIVERSAL ══════ */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+        }}>
+          <Search 
+            size={18} 
+            style={{ 
+              position: 'absolute', 
+              left: '1rem', 
+              opacity: 0.4,
+              pointerEvents: 'none',
+            }} 
+          />
+          <input
+            className="input-field"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nome, WhatsApp, procedimento, status, data, valor..."
+            style={{
+              paddingLeft: '2.8rem',
+              paddingRight: search ? '3rem' : '1rem',
+              padding: '0.85rem 1rem 0.85rem 2.8rem',
+              fontSize: '0.95rem',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
+              width: '100%',
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute',
+                right: '0.75rem',
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'inherit',
+                opacity: 0.6,
+                transition: 'opacity 0.2s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
+              title="Limpar busca"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        {/* Contador de resultados — só aparece quando há busca ativa */}
+        {search.trim() && (
+          <div style={{
+            marginTop: '0.5rem',
+            fontSize: '0.8rem',
+            opacity: 0.5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+          }}>
+            {filteredBudgets.length === 0 
+              ? `🔍 Nenhum resultado para "${search}"`
+              : `${filteredBudgets.length} de ${budgets.length} orçamento(s) encontrado(s)`
+            }
+          </div>
+        )}
+      </div>
+
+      {filteredBudgets.length === 0 ? (
         <p style={{ textAlign: 'center', opacity: 0.5, padding: '3rem 0' }}>
-          Nenhum orçamento gerado ainda.
+          {search.trim() 
+            ? `Nenhum orçamento corresponde à busca "${search}".`
+            : 'Nenhum orçamento gerado ainda.'
+          }
         </p>
       ) : (
         <>
@@ -122,7 +225,7 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
             </div>
 
             {/* Data Rows */}
-            {budgets.map(budget => (
+            {filteredBudgets.map(budget => (
               <div
                 key={budget.id}
                 style={{
@@ -189,7 +292,7 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
 
           {/* ══════ CARDS MOBILE ══════ */}
           <div className="budget-cards-mobile">
-            {budgets.map(budget => (
+            {filteredBudgets.map(budget => (
               <div key={budget.id} className="glass-panel" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
                 {/* Header: Nome + Status */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.75rem' }}>
