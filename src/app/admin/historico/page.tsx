@@ -161,10 +161,14 @@ function HistoricoContent() {
     if (pin) {
       setDeletingId(id);
       try {
-        await deleteContractById(id, pin);
-        await loadContracts();
+        const res = await deleteContractById(id, pin);
+        if (res && res.error) {
+          alert(res.error);
+        } else {
+          await loadContracts();
+        }
       } catch (e: any) {
-        alert(e.message || 'PIN incorreto. A exclusão foi cancelada.');
+        alert(e.message || 'Erro inesperado. A exclusão foi cancelada.');
       }
       setDeletingId(null);
     }

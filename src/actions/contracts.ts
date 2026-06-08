@@ -52,11 +52,17 @@ export async function getContractByLink(linkId: string) {
   });
 }
 export async function deleteContractById(id: string, pin?: string) {
-  if (pin !== "1986") {
-    throw new Error("PIN incorreto. Ação não autorizada.");
+  try {
+    if (pin?.trim() !== "1986") {
+      return { success: false, error: "PIN incorreto. Ação não autorizada." };
+    }
+    await prisma.contract.delete({ where: { id } });
+    revalidatePath('/admin/historico');
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erro ao deletar contrato:", error);
+    return { success: false, error: error.message || "Erro interno ao excluir contrato." };
   }
-  await prisma.contract.delete({ where: { id } });
-  revalidatePath('/admin/historico');
 }
 
 // Atualiza o status do contrato (usado pelo webhook, envio WhatsApp, etc.)
