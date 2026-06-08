@@ -45,6 +45,56 @@ const STATUS_CONFIG: Record<string, { className: string; label: string; icon: st
   RECUSADO:           { className: 'status-badge status-badge--recusado',    label: 'Recusado',                 icon: '❌', borderColor: '#ef4444' },
 };
 
+// ══════ SMART SEARCH HELPERS ══════
+function normalizeString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function levenshtein(a: string, b: string): number {
+  const tmp = [];
+  const alen = a.length;
+  const blen = b.length;
+  if (alen === 0) return blen;
+  if (blen === 0) return alen;
+  for (let i = 0; i <= alen; i++) tmp[i] = [i];
+  for (let j = 0; j <= blen; j++) tmp[0][j] = j;
+  for (let i = 1; i <= alen; i++) {
+    for (let j = 1; j <= blen; j++) {
+      tmp[i][j] = Math.min(
+        tmp[i - 1][j] + 1,
+        tmp[i][j - 1] + 1,
+        tmp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return tmp[alen][blen];
+}
+
+function fuzzyMatch(name: string, query: string): boolean {
+  const normName = normalizeString(name);
+  const normQuery = normalizeString(query);
+  
+  const queryWords = normQuery.split(/\s+/).filter(Boolean);
+  const nameWords = normName.split(/\s+/).filter(Boolean);
+  
+  if (queryWords.length === 0) return true;
+  
+  return queryWords.every(qw => {
+    if (normName.includes(qw)) return true;
+    
+    return nameWords.some(nw => {
+      if (qw.length <= 3) {
+        return nw.startsWith(qw) || levenshtein(qw, nw) <= 1;
+      }
+      const maxDistance = Math.min(2, Math.floor(nw.length / 3));
+      return levenshtein(qw, nw) <= maxDistance;
+    });
+  });
+}
+
 function HistoricoContent() {
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get('status') || 'TODOS';
@@ -53,6 +103,7 @@ function HistoricoContent() {
   const [surgeryTypes, setSurgeryTypes] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState(initialStatus);
   const [filterSurgery, setFilterSurgery] = useState('TODOS');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -249,6 +300,27 @@ function HistoricoContent() {
     );
   };
 
+  // Real-time smart filtering
+  const filteredContracts = contracts.filter(contract => {
+    if (!searchQuery) return true;
+
+    // 1. Match by patient name (fuzzy/approximate)
+    if (fuzzyMatch(contract.patientName, searchQuery)) return true;
+
+    // 2. Match by WhatsApp number (clean digits)
+    const queryDigits = searchQuery.replace(/\D/g, '');
+    if (queryDigits.length > 0) {
+      const phoneDigits = (contract.patientWhatsApp || '').replace(/\D/g, '');
+      if (phoneDigits.includes(queryDigits)) return true;
+    }
+
+    // 3. Match by formatted date
+    const contractDateStr = formatDate(contract.createdAt).toLowerCase();
+    if (contractDateStr.includes(searchQuery.toLowerCase())) return true;
+
+    return false;
+  });
+
   return (
     <main className="container">
       {/* BOTÃO HOME */}
@@ -276,6 +348,57 @@ function HistoricoContent() {
           </Link>
         </div>
 
+        {/* ══════ BARRA DE PESQUISA INTELIGENTE ══════ */}
+        <div style={{ position: 'relative', marginBottom: '1.25rem', width: '100%' }}>
+          <input
+            type="text"
+            placeholder="🔍 Buscar por nome do paciente (aproximação), WhatsApp ou data (DD/MM/AAAA)..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="input-field"
+            style={{
+              paddingLeft: '2.5rem',
+              paddingRight: searchQuery ? '2.5rem' : '1rem',
+              fontSize: '1rem',
+              borderRadius: '10px',
+              border: '1px solid rgba(148, 163, 184, 0.25)',
+              background: 'var(--glass-bg)',
+              backdropFilter: 'blur(10px)',
+              width: '100%',
+              transition: 'all 0.2s ease',
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{
+                position: 'absolute',
+                right: '1rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--foreground)',
+                opacity: 0.5,
+                cursor: 'pointer',
+                fontSize: '1.1rem',
+                padding: '0.2rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                width: '24px',
+                height: '24px',
+                transition: 'opacity 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         {/* ══════ FILTROS ══════ */}
         <div className="filter-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -301,7 +424,9 @@ function HistoricoContent() {
             </select>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: '0.85rem', opacity: 0.6 }}>
-            {contracts.length} contrato(s)
+            {searchQuery 
+              ? `${filteredContracts.length} de ${contracts.length} contrato(s)` 
+              : `${contracts.length} contrato(s)`}
           </div>
         </div>
 
@@ -311,11 +436,15 @@ function HistoricoContent() {
             <p style={{ opacity: 0.7, textAlign: 'center', padding: '2rem' }} className="animate-pulse">Carregando contratos...</p>
           )}
 
-          {!loading && contracts.length === 0 && (
-            <p style={{ opacity: 0.7, textAlign: 'center', padding: '2rem' }}>Nenhum contrato encontrado com os filtros selecionados.</p>
+          {!loading && filteredContracts.length === 0 && (
+            <p style={{ opacity: 0.7, textAlign: 'center', padding: '2rem' }}>
+              {searchQuery 
+                ? 'Nenhum contrato corresponde à sua busca.' 
+                : 'Nenhum contrato encontrado com os filtros selecionados.'}
+            </p>
           )}
 
-          {!loading && contracts.map((contract, i) => (
+          {!loading && filteredContracts.map((contract, i) => (
             <div
               key={contract.id}
               className="glass-panel contract-card"
