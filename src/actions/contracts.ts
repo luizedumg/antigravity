@@ -108,3 +108,77 @@ export async function getSignUrls(contractId: string) {
     nomeResponsavel: contract.nomeResponsavel || null,
   };
 }
+
+export async function getContractCriticalInfo(contractId: string) {
+  const contract = await prisma.contract.findUnique({
+    where: { id: contractId }
+  });
+
+  if (!contract || !contract.formData) return [];
+
+  const template = await prisma.surgeryTemplate.findUnique({
+    where: { name: contract.surgeryType }
+  });
+
+  if (!template || !template.questionsJson) return [];
+
+  const { CRITICAL_PATTERNS } = await import('./alerts');
+
+  let answers: Record<string, string> = {};
+  try {
+    answers = JSON.parse(contract.formData);
+  } catch (e) {
+    return [];
+  }
+
+  let questions: Array<{ key: string; label: string; type: string }> = [];
+  try {
+    questions = JSON.parse(template.questionsJson);
+  } catch (e) {
+    return [];
+  }
+
+  const labelMap: Record<string, string> = {};
+  for (const q of questions) {
+    labelMap[q.key] = q.label;
+  }
+
+  const findings: Array<{ category: string; label: string; value: string; isHighlighted: boolean }> = [];
+
+  for (const [category, patterns] of Object.entries(CRITICAL_PATTERNS)) {
+    for (const [key, value] of Object.entries(answers)) {
+      if (!value || !value.trim()) continue;
+
+      const keyLower = key.toLowerCase();
+      const labelLower = (labelMap[key] || key).toLowerCase();
+      const combined = keyLower + ' ' + labelLower;
+
+      const matched = patterns.some(p => combined.includes(p));
+      if (matched) {
+        const displayLabel = labelMap[key] || key.replace(/_/g, ' ');
+        const displayValue = value.toLowerCase() === 'sim' ? 'Sim' 
+          : value.toLowerCase() === 'não' || value.toLowerCase() === 'nao' ? 'Não' 
+          : value;
+        
+        let isHighlighted = false;
+        
+        // Regras de destaque
+        if (category === 'Uso de Imagem') {
+          // Uso de imagem sempre merece destaque visual, mas verde/vermelho dependo da UI. Aqui marcamos como true para UI cuidar.
+          isHighlighted = true;
+        } else if (displayValue === 'Sim') {
+          // Alergias, Doenças ou Drogas com 'Sim' é um red flag.
+          isHighlighted = true;
+        } else if (displayValue !== 'Sim' && displayValue !== 'Não') {
+            // Se for um texto livre preenchido na categoria de alergias, destacamos
+            isHighlighted = true;
+        }
+
+        findings.push({ category, label: displayLabel, value: displayValue, isHighlighted });
+        break; // Evitar múltiplas perguntas pegando a mesma categoria (já que é um sumário rápido)
+      }
+    }
+  }
+
+  return findings;
+}

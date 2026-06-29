@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Home } from 'lucide-react';
 import { getContracts, getDistinctSurgeryTypes } from '@/actions/historico';
-import { deleteContractById } from '@/actions/contracts';
+import { deleteContractById, getContractCriticalInfo } from '@/actions/contracts';
 import { checkZapsignDocumentStatus, getDoctorSignUrl } from '@/actions/zapsign';
 
 type Contract = {
@@ -107,6 +107,11 @@ function HistoricoContent() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  
+  // States for Critical Info Modal
+  const [modalData, setModalData] = useState<any[] | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingInfoId, setLoadingInfoId] = useState<string | null>(null);
 
   const loadContracts = useCallback(async () => {
     const data = await getContracts({
@@ -176,6 +181,18 @@ function HistoricoContent() {
 
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [signingId, setSigningId] = useState<string | null>(null);
+
+  const handleOpenCriticalInfo = async (contractId: string) => {
+    setLoadingInfoId(contractId);
+    try {
+      const info = await getContractCriticalInfo(contractId);
+      setModalData(info);
+      setIsModalOpen(true);
+    } catch (e) {
+      alert("Erro ao carregar dados críticos");
+    }
+    setLoadingInfoId(null);
+  };
 
   const handleCheckStatus = async (contractId: string) => {
     setCheckingId(contractId);
@@ -522,6 +539,28 @@ function HistoricoContent() {
                   </button>
                 )}
 
+                {/* Botão de Dados Críticos — para contratos com formulário preenchido */}
+                {['VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO', 'DRIVE_OK'].includes(contract.status) && (
+                  <button
+                    onClick={() => handleOpenCriticalInfo(contract.id)}
+                    disabled={loadingInfoId === contract.id}
+                    title="Ver dados importantes (Alergias, Imagem, etc)"
+                    style={{
+                      padding: '0.5rem 1rem', fontSize: '0.85rem', minHeight: '40px',
+                      borderRadius: '8px', border: '1px solid rgba(234, 179, 8, 0.4)',
+                      background: 'rgba(234, 179, 8, 0.1)', color: '#ca8a04',
+                      cursor: loadingInfoId === contract.id ? 'wait' : 'pointer',
+                      fontWeight: 600, fontFamily: 'var(--font-base)',
+                      transition: 'all 0.2s ease', display: 'inline-flex',
+                      alignItems: 'center', gap: '0.4rem'
+                    }}
+                    onMouseEnter={e => { if (loadingInfoId !== contract.id) { e.currentTarget.style.background = 'rgba(234, 179, 8, 0.2)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(234, 179, 8, 0.1)'; e.currentTarget.style.transform = ''; }}
+                  >
+                    {loadingInfoId === contract.id ? '⏳' : '⚠️ Dados Críticos'}
+                  </button>
+                )}
+
                 {/* Assinatura do Médico — para contratos com ZapSign que ainda não foram totalmente assinados */}
                 {contract.zapsignToken && !['ASSINADO', 'DRIVE_OK', 'RECUSADO'].includes(contract.status) && (
                   <button
@@ -602,6 +641,62 @@ function HistoricoContent() {
           </Link>
         </div>
       </div>
+
+      {/* ══════ MODAL DE DADOS CRÍTICOS ══════ */}
+      {isModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }} onClick={() => setIsModalOpen(false)}>
+          <div 
+            className="glass-panel"
+            style={{ width: '90%', maxWidth: '500px', padding: '2rem', borderRadius: '16px', position: 'relative' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', opacity: 0.6 }}
+            >×</button>
+            <h2 style={{ margin: '0 0 1.5rem 0', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              ⚠️ Dados Importantes
+            </h2>
+            
+            {!modalData || modalData.length === 0 ? (
+              <p style={{ opacity: 0.7 }}>Nenhum dado crítico (alergias, doenças, uso de imagem, etc) foi encontrado neste contrato.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '60vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                {modalData.map((item, idx) => (
+                  <div key={idx} style={{
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    background: item.isHighlighted ? 'rgba(239, 68, 68, 0.05)' : 'rgba(148, 163, 184, 0.05)',
+                    border: `1px solid ${item.isHighlighted ? (item.category === 'Uso de Imagem' && item.value === 'Sim' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)') : 'rgba(148, 163, 184, 0.2)'}`
+                  }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
+                      {item.category}
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.25rem' }}>
+                      {item.label}
+                    </div>
+                    <div style={{ 
+                      fontSize: '1rem', 
+                      color: item.isHighlighted ? (item.category === 'Uso de Imagem' && item.value === 'Sim' ? '#10b981' : '#ef4444') : 'inherit',
+                      fontWeight: item.isHighlighted ? 700 : 400
+                    }}>
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <button className="btn-primary" onClick={() => setIsModalOpen(false)} style={{ width: '100%', marginTop: '2rem' }}>
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

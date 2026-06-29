@@ -3,7 +3,7 @@
 import { sendStatusNotification } from './whatsapp';
 
 // Palavras-chave que identificam campos críticos
-const CRITICAL_PATTERNS: Record<string, string[]> = {
+export const CRITICAL_PATTERNS: Record<string, string[]> = {
   'Uso de Imagem': ['imagem', 'foto', 'image', 'fotografia', 'video', 'filmagem'],
   'Alergias': ['alergia', 'alergico', 'alérgico', 'alergias'],
   'Uso de Drogas/Substâncias': ['droga', 'tabagismo', 'alcool', 'álcool', 'fumo', 'fumante', 'substancia', 'substância', 'cocaina', 'maconha', 'cigarro', 'etilismo', 'tabaco'],
