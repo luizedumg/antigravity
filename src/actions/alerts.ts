@@ -68,21 +68,26 @@ export async function sendPatientAlerts(data: {
     criticalFindings.join('\n');
 
   const doctorNumber = '5534999189054';
+  const groupNumber = '120363407792704523@g.us';
+  const recipients = [doctorNumber, groupNumber];
 
   if (EVOLUTION_API_URL && EVOLUTION_API_KEY && EVOLUTION_INSTANCE) {
-    try {
-      const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
-      await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVOLUTION_API_KEY
-        },
-        body: JSON.stringify({ number: doctorNumber, text: message })
-      });
-      console.log(`[Alerta Médico] ✅ Enviado para Dr. Luiz Eduardo`);
-    } catch (err) {
-      console.error('[Alerta Médico] ❌ Erro ao enviar:', err);
+    const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
+    
+    for (const number of recipients) {
+      try {
+        await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY
+          },
+          body: JSON.stringify({ number, text: message })
+        });
+        console.log(`[Alerta Médico] ✅ Enviado para ${number}`);
+      } catch (err) {
+        console.error(`[Alerta Médico] ❌ Erro ao enviar para ${number}:`, err);
+      }
     }
   }
 
