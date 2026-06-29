@@ -2,7 +2,6 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { CRITICAL_PATTERNS } from './alerts';
 
 // Busca os dados do template com base no tipo de cirurgia
 export async function getTemplateByName(name: string) {
@@ -122,6 +121,13 @@ export async function getContractCriticalInfo(contractId: string) {
   });
 
   if (!template || !template.questionsJson) return [];
+
+  const CRITICAL_PATTERNS: Record<string, string[]> = {
+    'Uso de Imagem': ['imagem', 'foto', 'image', 'fotografia', 'video', 'filmagem'],
+    'Alergias': ['alergia', 'alergico', 'alérgico', 'alergias'],
+    'Uso de Drogas/Substâncias': ['droga', 'tabagismo', 'alcool', 'álcool', 'fumo', 'fumante', 'substancia', 'substância', 'cocaina', 'maconha', 'cigarro', 'etilismo', 'tabaco'],
+    'Doenças Pré-existentes': ['doenca', 'doença', 'comorbidade', 'patologia', 'diabetes', 'hipertensao', 'hipertensão', 'cardiaco', 'cardíaco', 'renal', 'hepatica', 'hepática', 'hiv', 'hepatite', 'asma', 'epilepsia']
+  };
 
   let answers: Record<string, string> = {};
   try {
