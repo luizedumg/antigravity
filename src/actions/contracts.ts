@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { CRITICAL_PATTERNS } from './alerts';
 
 // Busca os dados do template com base no tipo de cirurgia
 export async function getTemplateByName(name: string) {
@@ -121,8 +122,6 @@ export async function getContractCriticalInfo(contractId: string) {
   });
 
   if (!template || !template.questionsJson) return [];
-
-  const { CRITICAL_PATTERNS } = await import('./alerts');
 
   let answers: Record<string, string> = {};
   try {
