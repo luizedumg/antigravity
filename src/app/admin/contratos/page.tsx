@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getDashboardMetrics } from "@/actions/historico";
 import LogoutButton from "@/components/LogoutButton";
 import { Home } from "lucide-react";
@@ -25,10 +26,13 @@ export default async function ContratosDashboard() {
 
       {/* LOGO */}
       <div style={{ marginTop: '2vh', marginBottom: '1rem', textAlign: 'center' }}>
-         <img 
-            src="/logo.png" 
-            alt="Logotipo L.E.M. Luiz Eduardo Mamede" 
-            style={{ maxHeight: '110px', objectFit: 'contain' }} 
+         <Image
+            src="/logo.png"
+            alt="Logotipo L.E.M. Luiz Eduardo Mamede"
+            width={264}
+            height={110}
+            priority
+            style={{ height: '110px', width: 'auto', objectFit: 'contain' }}
          />
       </div>
 
@@ -74,7 +78,7 @@ export default async function ContratosDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/historico?status=ASSINADO" className="metric-card-link">
+          <Link href="/admin/historico?status=CONCLUIDOS" className="metric-card-link">
             <div className="metric-card">
               <div className="metric-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>✅</div>
               <div className="metric-info">
@@ -88,7 +92,7 @@ export default async function ContratosDashboard() {
         {/* CARDS DE AÇÃO */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', width: '100%' }}>
           
-          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
+          <div className="glass-panel" style={{ transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>Novo Link / Paciente</h2>
               <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Gere um formulário Wizard para encaminhar ao WhatsApp do paciente e recolher os dados.</p>
@@ -98,7 +102,7 @@ export default async function ContratosDashboard() {
             </Link>
           </div>
 
-          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
+          <div className="glass-panel" style={{ transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>Histórico</h2>
               <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Visualize contratos gerados, assinaturas pendentes e filtros por cirurgia.</p>
@@ -108,7 +112,7 @@ export default async function ContratosDashboard() {
             </Link>
           </div>
 
-          <div className="glass-panel" style={{ cursor: 'pointer', transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
+          <div className="glass-panel" style={{ transition: 'all 0.3s ease', padding: '2rem', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>Modelos de Cirurgia</h2>
               <p style={{ marginBottom: '1.5rem', fontSize: '0.95rem', opacity: 0.8 }}>Configure as perguntas dinâmicas e o template .docx para cada tipo de cirurgia.</p>

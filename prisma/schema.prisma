@@ -25,6 +25,11 @@ model Contract {
   googleDriveFileId String? // ID do arquivo no Google Drive após upload
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@index([zapsignToken]) // webhook busca o contrato por este token a cada evento
+  @@index([status])       // dashboard/listagem filtram por status
+  @@index([surgeryType])  // filtro por tipo de cirurgia
+  @@index([createdAt])    // ordenação padrão da listagem
 }
 
 model SurgeryTemplate {
@@ -74,4 +79,7 @@ model Budget {
   magicLinkId     String   @unique @default(uuid()) // UUID para a página premium do paciente
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }

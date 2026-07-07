@@ -2,8 +2,21 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GoogleGenAI } from '@google/genai';
 import { getApiKeyForProvider } from '@/actions/apikeys';
+import { AUTH_COOKIE, verifySession } from '@/lib/auth';
+import { safeEqual } from '@/lib/tokens';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
+import { roundMoney } from '@/lib/money';
 
 const SYSTEM_TOKEN = process.env.API_SECRET_TOKEN || 'antigravity-ai-secret-2026';
+
+// Lê o valor do cookie de sessão a partir do header Cookie bruto.
+function readAuthCookie(cookieHeader: string): string | undefined {
+  for (const part of cookieHeader.split(';')) {
+    const [name, ...rest] = part.trim().split('=');
+    if (name === AUTH_COOKIE) return decodeURIComponent(rest.join('='));
+  }
+  return undefined;
+}
 
 /**
  * Smart Budget API — Interpreta texto natural e gera orçamentos.
@@ -14,14 +27,26 @@ const SYSTEM_TOKEN = process.env.API_SECRET_TOKEN || 'antigravity-ai-secret-2026
  */
 export async function POST(req: Request) {
   try {
-    // ── Autenticação (Bearer token OU cookie admin) ──
+    // ── Autenticação (Bearer token OU cookie admin assinado) ──
     const authHeader = req.headers.get('authorization');
     const cookieHeader = req.headers.get('cookie') || '';
-    const hasAdminCookie = cookieHeader.includes('admin_auth=authenticated');
-    const hasValidToken = authHeader === `Bearer ${SYSTEM_TOKEN}`;
+    const hasAdminCookie = await verifySession(readAuthCookie(cookieHeader));
+    const hasValidToken =
+      !!authHeader &&
+      authHeader.startsWith('Bearer ') &&
+      safeEqual(authHeader.slice(7), SYSTEM_TOKEN);
 
     if (!hasValidToken && !hasAdminCookie) {
       return NextResponse.json({ error: 'Acesso negado.' }, { status: 401 });
+    }
+
+    // Teto de uso para conter abuso dos créditos do Gemini: 60 chamadas / 10 min por IP.
+    const rl = rateLimit(`smart-budget:${clientIp(req)}`, 60, 10 * 60 * 1000);
+    if (rl.blocked) {
+      return NextResponse.json(
+        { error: 'Limite de uso temporário atingido. Aguarde alguns minutos.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) } }
+      );
     }
 
     const body = await req.json();
@@ -38,7 +63,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('[Smart Budget] Erro:', error);
     return NextResponse.json(
-      { error: 'Erro interno no servidor.', details: error.message },
+      { error: 'Erro interno no servidor.' },
       { status: 500 }
     );
   }
@@ -157,12 +182,17 @@ Responda APENAS com JSON puro (sem \`\`\`json), no formato EXATO:
   "notes": "Observações sobre o matching, se houver"
 }`;
 
-  // 5. Chamar Gemini
+  // 5. Chamar Gemini (com timeout de 30s para não pendurar a requisição)
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-  });
+  const response = await Promise.race([
+    ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Gemini timeout (30s)')), 30000)
+    ),
+  ]);
 
   const rawText = (response.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
   
@@ -186,12 +216,12 @@ Responda APENAS com JSON puro (sem \`\`\`json), no formato EXATO:
     }, { status: 404 });
   }
 
-  const matchedVars = variables.filter(v => 
+  const matchedVars = variables.filter(v =>
     (parsed.matchedVariableIds || []).includes(v.id)
   );
-  const variablesCost = matchedVars.reduce((acc, v) => acc + v.price, 0);
-  const discount = parseFloat(parsed.discount) || 0;
-  const totalPrice = Math.max(0, matchedTemplate.basePrice + variablesCost - discount);
+  const variablesCost = roundMoney(matchedVars.reduce((acc, v) => acc + v.price, 0));
+  const discount = roundMoney(parseFloat(parsed.discount) || 0);
+  const totalPrice = roundMoney(Math.max(0, matchedTemplate.basePrice + variablesCost - discount));
 
   // 7. Retornar preview
   return NextResponse.json({
@@ -248,9 +278,9 @@ async function handleConfirm(body: any) {
     ? await prisma.budgetVariable.findMany({ where: { id: { in: varIds } } })
     : [];
 
-  const variablesCost = realVars.reduce((acc, v) => acc + v.price, 0);
-  const discount = parseFloat(preview.discount) || 0;
-  const totalPrice = Math.max(0, template.basePrice + variablesCost - discount);
+  const variablesCost = roundMoney(realVars.reduce((acc, v) => acc + v.price, 0));
+  const discount = roundMoney(parseFloat(preview.discount) || 0);
+  const totalPrice = roundMoney(Math.max(0, template.basePrice + variablesCost - discount));
 
   // Criar o orçamento
   const budget = await prisma.budget.create({

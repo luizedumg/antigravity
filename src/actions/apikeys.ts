@@ -1,11 +1,13 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth';
 
 /**
  * Salva ou atualiza uma chave API para um provedor.
  */
 export async function saveApiKey(provider: string, key: string): Promise<{ success: boolean }> {
+  await requireAuth();
   await prisma.apiKey.upsert({
     where: { provider },
     create: { provider, key },
@@ -19,6 +21,7 @@ export async function saveApiKey(provider: string, key: string): Promise<{ succe
  * Nunca retorna a chave real.
  */
 export async function getApiKeyStatus(): Promise<Record<string, { exists: boolean; masked: string }>> {
+  await requireAuth();
   const keys = await prisma.apiKey.findMany();
   const result: Record<string, { exists: boolean; masked: string }> = {
     gemini: { exists: false, masked: '' },
@@ -39,6 +42,7 @@ export async function getApiKeyStatus(): Promise<Record<string, { exists: boolea
  * Deleta a chave de um provedor.
  */
 export async function deleteApiKey(provider: string): Promise<{ success: boolean }> {
+  await requireAuth();
   await prisma.apiKey.deleteMany({ where: { provider } });
   return { success: true };
 }

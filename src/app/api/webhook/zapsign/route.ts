@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { uploadSignedPdfToDrive } from '@/actions/googledrive';
 import { sendStatusNotification } from '@/actions/whatsapp';
@@ -29,12 +30,17 @@ async function getDocumentDetails(docToken: string) {
 const STATUS_ORDER = ['PENDENTE', 'ENVIADO', 'VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO', 'DRIVE_OK'];
 
 function canTransition(currentStatus: string, newStatus: string): boolean {
-  // RECUSADO pode vir de qualquer status
-  if (newStatus === 'RECUSADO') return currentStatus !== 'RECUSADO';
-  
+  // RECUSADO é TERMINAL: uma vez recusado, nenhum evento posterior o reativa.
+  // (RECUSADO não está em STATUS_ORDER, então sem esta guarda qualquer evento
+  //  "ressuscitaria" o contrato para VISUALIZADO/ASSINADO.)
+  if (currentStatus === 'RECUSADO') return false;
+
+  // RECUSADO pode vir de qualquer outro status
+  if (newStatus === 'RECUSADO') return true;
+
   const currentIdx = STATUS_ORDER.indexOf(currentStatus);
   const newIdx = STATUS_ORDER.indexOf(newStatus);
-  
+
   // Só avança, nunca retrocede ou repete
   return newIdx > currentIdx;
 }
@@ -42,8 +48,6 @@ function canTransition(currentStatus: string, newStatus: string): boolean {
 export async function POST(req: Request) {
   try {
     const payload = await req.json();
-    
-    console.log('[Webhook ZapSign] Payload completo:', JSON.stringify(payload).substring(0, 1000));
 
     const eventType = payload.event_type;
     
@@ -130,8 +134,10 @@ export async function POST(req: Request) {
                 event: 'ASSINADO'
               });
 
-              // ── UPLOAD AUTOMÁTICO PARA O GOOGLE DRIVE ──
-              await handleDriveUpload(contractId, patientName, surgeryType);
+              // ── UPLOAD AUTOMÁTICO PARA O GOOGLE DRIVE (em background) ──
+              // Responde o webhook rápido; o upload (com esperas/retry) roda
+              // após a resposta, evitando timeout e reentregas da ZapSign.
+              after(() => handleDriveUpload(contractId, patientName, surgeryType));
             } else {
               console.log(`[Webhook] ⏭️ Ignorado: ${contract.status} → ASSINADO (já processado)`);
             }
@@ -178,7 +184,14 @@ export async function POST(req: Request) {
       // ── Documento completamente finalizado (evento alternativo da ZapSign) ──
       case 'doc_completed':
       case 'doc_finalized': {
-        if (canTransition(contract.status, 'ASSINADO')) {
+        // Verificação anti-forja: só confia neste evento se a API da ZapSign
+        // confirmar que o documento está realmente 'signed'. Se a API estiver
+        // indisponível, mantém o comportamento anterior (fail-open) para não
+        // travar o fluxo — mas um payload forjado sozinho não marca ASSINADO.
+        const details = await getDocumentDetails(docToken);
+        const apiConfirms = !details || details.status === 'signed';
+
+        if (apiConfirms && canTransition(contract.status, 'ASSINADO')) {
           await prisma.contract.update({
             where: { id: contractId },
             data: { status: 'ASSINADO' }
@@ -191,7 +204,9 @@ export async function POST(req: Request) {
             event: 'ASSINADO'
           });
 
-          await handleDriveUpload(contractId, patientName, surgeryType);
+          after(() => handleDriveUpload(contractId, patientName, surgeryType));
+        } else if (!apiConfirms) {
+          console.warn(`[Webhook] ⚠️ ${eventType} ignorado: API ZapSign não confirma 'signed' (status="${details?.status}")`);
         } else {
           console.log(`[Webhook] ⏭️ Ignorado: ${contract.status} → ASSINADO via ${eventType} (já processado)`);
         }

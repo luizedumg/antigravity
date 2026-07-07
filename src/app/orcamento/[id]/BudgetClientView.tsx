@@ -1,37 +1,57 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Download, CheckCircle2, Calendar, ArrowLeft } from "lucide-react";
+import { formatBRL } from "@/lib/money";
+import { updateBudgetStatus } from "@/actions/budgets";
+
+// WhatsApp comercial do consultório (para o paciente falar com a equipe).
+const CLINIC_WHATSAPP = "5534997346139";
+
+function parseVariables(raw: string): any[] {
+  try {
+    const v = JSON.parse(raw || "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function BudgetClientView({ budget }: { budget: any }) {
-  const variables = JSON.parse(budget.variablesSelectedJson || "[]");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const variables = parseVariables(budget.variablesSelectedJson);
+  const [status, setStatus] = useState<string>(budget.status);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsAdmin(document.cookie.includes("admin_auth=authenticated"));
-    }
-  }, []);
+  const waLink = (msg: string) =>
+    `https://wa.me/${CLINIC_WHATSAPP}?text=${encodeURIComponent(msg)}`;
 
   const handlePrint = () => {
     window.print();
   };
 
+  const handleAccept = async () => {
+    setSaving(true);
+    try {
+      await updateBudgetStatus(budget.id, "APROVADO");
+      setStatus("APROVADO");
+    } catch {
+      // Mesmo que a gravação falhe, encaminhamos o paciente ao WhatsApp.
+    } finally {
+      setSaving(false);
+      window.open(
+        waLink(`Olá! Quero prosseguir com a proposta de ${budget.surgeryType} (${budget.patientName}).`),
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }
+  };
+
   const handleCloseOrBack = () => {
-    // Tenta fechar a aba/janela atual (caso tenha sido aberta com target="_blank")
+    // Tenta fechar a aba (caso aberta com target="_blank"); senão, volta no
+    // histórico. Nunca redireciona para "/" (que levaria o paciente ao login).
     window.close();
-    
-    // Fallback se a janela não fechar
     setTimeout(() => {
-      if (isAdmin) {
-        window.location.href = "/admin/orcamentos";
-      } else {
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          window.location.href = "/";
-        }
-      }
+      if (window.history.length > 1) window.history.back();
     }, 150);
   };
 
@@ -375,7 +395,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
           }}
         >
           <ArrowLeft size={16} />
-          {isAdmin ? "Voltar ao Painel" : "Voltar"}
+          Voltar
         </button>
       </div>
 
@@ -461,7 +481,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
                   <span style={{ fontSize: '0.65rem', background: '#0f172a', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>Equipe Médica</span>
                   <span className="budget-cost-name">{budget.surgeryType}</span>
                 </div>
-                <span className="budget-cost-value">R$ {budget.basePrice.toLocaleString('pt-BR')}</span>
+                <span className="budget-cost-value">{formatBRL(budget.basePrice)}</span>
               </div>
 
               {/* Demais custos (hospital, anestesia, etc.) */}
@@ -471,7 +491,7 @@ export default function BudgetClientView({ budget }: { budget: any }) {
                     <CheckCircle2 size={16} color="#10b981" style={{ flexShrink: 0 }} />
                     <span className="budget-cost-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.name}</span>
                   </div>
-                  <span className="budget-cost-value">R$ {v.price.toLocaleString('pt-BR')}</span>
+                  <span className="budget-cost-value">{formatBRL(v.price)}</span>
                 </div>
               ))}
             </div>
@@ -481,14 +501,14 @@ export default function BudgetClientView({ budget }: { budget: any }) {
               <p className="print-total-label" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Valor Total Estimado</p>
               {budget.discount > 0 && (
                 <p style={{ fontSize: '0.95rem', fontWeight: 500, color: '#10b981', marginBottom: '0.5rem' }}>
-                  Desconto Especial: - R$ {budget.discount.toLocaleString('pt-BR')}
+                  Desconto Especial: - {formatBRL(budget.discount)}
                 </p>
               )}
               <p className="budget-total-value">
-                R$ {budget.totalPrice.toLocaleString('pt-BR')}
+                {formatBRL(budget.totalPrice)}
               </p>
               <p className="print-validity" style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '1.25rem', lineHeight: 1.7, fontStyle: 'italic' }}>
-                Os valores referentes a custos hospitalares e anestésicos representam uma estimativa baseada nas tabelas vigentes na data desta proposta, podendo sofrer ajustes conforme atualização das instituições parceiras. Validade desta proposta: 30 dias (a equipe).
+                Os valores referentes a custos hospitalares e anestésicos representam uma estimativa baseada nas tabelas vigentes na data desta proposta, podendo sofrer ajustes conforme atualização das instituições parceiras. Validade desta proposta: 30 dias.
               </p>
             </div>
 
@@ -524,6 +544,28 @@ export default function BudgetClientView({ budget }: { budget: any }) {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* ═══ Ação do paciente / contato (oculto na impressão) ═══ */}
+          <div className="hide-on-print" style={{ marginTop: '1.75rem' }}>
+            {status === 'APROVADO' ? (
+              <div style={{ padding: '1.5rem', borderRadius: '1rem', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', textAlign: 'center' }}>
+                <p style={{ fontWeight: 600, color: '#059669', marginBottom: '0.35rem' }}>✅ Proposta aceita!</p>
+                <p style={{ fontSize: '0.9rem', color: '#475569', marginBottom: '1rem' }}>Nossa equipe entrará em contato para os próximos passos.</p>
+                <a href={waLink(`Olá! Já aceitei a proposta de ${budget.surgeryType} e gostaria de dar continuidade.`)} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#25D366', color: 'white', padding: '0.8rem 1.6rem', borderRadius: '50px', fontWeight: 600, textDecoration: 'none' }}>
+                  💬 Falar com a equipe
+                </a>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.9rem', justifyContent: 'center' }}>
+                <button onClick={handleAccept} disabled={saving} style={{ flex: '1 1 200px', background: 'linear-gradient(135deg, #0f172a, #1e293b)', color: 'white', padding: '1rem 1.5rem', borderRadius: '50px', fontWeight: 600, fontSize: '1rem', border: 'none', cursor: saving ? 'wait' : 'pointer' }}>
+                  {saving ? 'Processando…' : '✅ Quero prosseguir'}
+                </button>
+                <a href={waLink(`Olá! Tenho dúvidas sobre a proposta de ${budget.surgeryType}.`)} target="_blank" rel="noopener noreferrer" style={{ flex: '1 1 200px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'rgba(37,211,102,0.12)', color: '#059669', padding: '1rem 1.5rem', borderRadius: '50px', fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(37,211,102,0.35)' }}>
+                  💬 Falar com a equipe
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Rodapé impressão */}

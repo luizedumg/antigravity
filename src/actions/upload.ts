@@ -7,12 +7,13 @@ import PizZip from 'pizzip';
 import { revalidatePath } from 'next/cache';
 import { GoogleGenAI } from '@google/genai';
 import { getApiKeyForProvider } from './apikeys';
-
-const ADMIN_PIN = '1986';
+import { requireAuth } from '@/lib/auth';
+import { checkPin } from '@/lib/adminPin';
 
 export async function uploadTemplateDocx(formData: FormData) {
+  await requireAuth();
   const pin = (formData.get('pin') as string) || '';
-  if (pin !== ADMIN_PIN) {
+  if (!checkPin(pin)) {
     throw new Error('Senha incorreta. Operação não autorizada.');
   }
 
@@ -116,7 +117,13 @@ Devolva APENAS um Array JSON puro (sem marcação \`\`\`json): [{"key": "variave
          }
 
          text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-         finalQuestions = JSON.parse(text);
+         const parsed = JSON.parse(text);
+         // Valida o formato antes de aceitar (a IA pode devolver algo inesperado).
+         const isValid =
+           Array.isArray(parsed) &&
+           parsed.every((q) => q && typeof q.key === 'string' && typeof q.label === 'string');
+         if (!isValid) throw new Error('Formato de perguntas inválido retornado pela IA');
+         finalQuestions = parsed;
      } catch (err) {
          console.error('Falha ao acionar Inteligência Artificial:', err);
          finalQuestions = customTags.map(tag => ({ key: tag, label: tag.replace(/_/g, ' '), type: 'text' }));

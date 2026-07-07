@@ -1,15 +1,26 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendBudgetToN8N } from '@/actions/budgets';
+import { bearerMatches } from '@/lib/tokens';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
+import { roundMoney } from '@/lib/money';
 
 export async function POST(req: Request) {
   try {
-    // 1. Validar a Autenticação
+    // 1. Validar a Autenticação (comparação em tempo constante)
     const authHeader = req.headers.get('authorization');
     const systemToken = process.env.API_SECRET_TOKEN || 'antigravity-ai-secret-2026';
-    
-    if (authHeader !== `Bearer ${systemToken}`) {
+
+    if (!bearerMatches(authHeader, systemToken)) {
       return NextResponse.json({ error: 'Acesso negado. Token inválido.' }, { status: 401 });
+    }
+
+    const rl = rateLimit(`generate-budget:${clientIp(req)}`, 60, 10 * 60 * 1000);
+    if (rl.blocked) {
+      return NextResponse.json(
+        { error: 'Limite de uso temporário atingido. Aguarde alguns minutos.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) } }
+      );
     }
 
     const data = await req.json();
@@ -40,9 +51,9 @@ export async function POST(req: Request) {
       variablesCost = vars.reduce((acc, v) => acc + v.price, 0);
     }
 
-    // 4. Calcular o Total
-    const appliedDiscount = parseFloat(discount) || 0;
-    const totalPrice = Math.max(0, template.basePrice + variablesCost - appliedDiscount);
+    // 4. Calcular o Total (arredondado para 2 casas)
+    const appliedDiscount = roundMoney(parseFloat(discount) || 0);
+    const totalPrice = roundMoney(Math.max(0, template.basePrice + variablesCost - appliedDiscount));
 
     // 5. Salvar o Orçamento
     const budget = await prisma.budget.create({
@@ -75,6 +86,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("API Error [generate-budget]:", error);
-    return NextResponse.json({ error: 'Erro interno no servidor', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno no servidor' }, { status: 500 });
   }
 }

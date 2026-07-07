@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { AUTH_COOKIE, verifySession } from '@/lib/auth';
 
-export function middleware(request: NextRequest) {
+// Next 16: a convenção `middleware` foi renomeada para `proxy`.
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rotas PÚBLICAS — não proteger
@@ -22,10 +24,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Verificar cookie de autenticação
-  const authCookie = request.cookies.get('admin_auth');
-  
-  if (!authCookie || authCookie.value !== 'authenticated') {
+  // Verificar cookie de sessão ASSINADO (não mais uma string fixa forjável)
+  const authCookie = request.cookies.get(AUTH_COOKIE);
+
+  if (!(await verifySession(authCookie?.value))) {
     // Redirecionar para login
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);

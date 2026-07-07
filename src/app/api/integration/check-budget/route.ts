@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { bearerMatches } from '@/lib/tokens';
 
 const SYSTEM_TOKEN = process.env.API_SECRET_TOKEN || 'antigravity-ai-secret-2026';
 
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${SYSTEM_TOKEN}`) {
+    if (!bearerMatches(authHeader, SYSTEM_TOKEN)) {
       return NextResponse.json({ error: 'Acesso negado.' }, { status: 401 });
     }
 
@@ -19,17 +20,16 @@ export async function GET(req: Request) {
 
     const cleanName = name.trim();
 
-    // Encontra o orçamento mais recente para o paciente
-    const budget = await prisma.budget.findFirst({
-      where: {
-        patientName: {
-          contains: cleanName
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+    // Preferir match EXATO do nome; fallback para `contains` se não houver.
+    const budget =
+      (await prisma.budget.findFirst({
+        where: { patientName: { equals: cleanName } },
+        orderBy: { createdAt: 'desc' },
+      })) ||
+      (await prisma.budget.findFirst({
+        where: { patientName: { contains: cleanName } },
+        orderBy: { createdAt: 'desc' },
+      }));
 
     if (budget) {
       return NextResponse.json({
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
   } catch (error: any) {
     console.error('[Integration Check Budget] Erro:', error);
     return NextResponse.json(
-      { error: 'Erro interno no servidor.', details: error.message },
+      { error: 'Erro interno no servidor.' },
       { status: 500 }
     );
   }

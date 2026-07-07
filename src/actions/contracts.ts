@@ -2,8 +2,11 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth';
+import { checkPin } from '@/lib/adminPin';
 
 // Busca os dados do template com base no tipo de cirurgia
+// (público — usado na página do paciente).
 export async function getTemplateByName(name: string) {
   return await prisma.surgeryTemplate.findUnique({
     where: { name }
@@ -12,6 +15,7 @@ export async function getTemplateByName(name: string) {
 
 // Quando o admin (cirurgião) criar um link
 export async function createContractDraft(data: { patientName: string, patientWhatsApp: string, surgeryType: string }) {
+  await requireAuth();
   const linkId = crypto.randomUUID();
   const contract = await prisma.contract.create({
     data: {
@@ -53,7 +57,8 @@ export async function getContractByLink(linkId: string) {
 }
 export async function deleteContractById(id: string, pin?: string) {
   try {
-    if (pin?.trim() !== "1986") {
+    await requireAuth();
+    if (!checkPin(pin)) {
       return { success: false, error: "PIN incorreto. Ação não autorizada." };
     }
     await prisma.contract.delete({ where: { id } });
@@ -65,8 +70,9 @@ export async function deleteContractById(id: string, pin?: string) {
   }
 }
 
-// Atualiza o status do contrato (usado pelo webhook, envio WhatsApp, etc.)
+// Atualiza o status do contrato (chamado do painel admin)
 export async function updateContractStatus(contractId: string, newStatus: string) {
+  await requireAuth();
   await prisma.contract.update({
     where: { id: contractId },
     data: { status: newStatus }
@@ -76,6 +82,7 @@ export async function updateContractStatus(contractId: string, newStatus: string
 
 // Atualiza status pelo linkId (quando não temos o id interno)
 export async function updateContractStatusByLink(linkId: string, newStatus: string) {
+  await requireAuth();
   await prisma.contract.update({
     where: { linkId },
     data: { status: newStatus }
@@ -88,6 +95,7 @@ export async function updateContractStatusByLink(linkId: string, newStatus: stri
  * Respeita expiração de 30 dias: se passaram mais de 30 dias, retorna null.
  */
 export async function getSignUrls(contractId: string) {
+  await requireAuth();
   const contract = await prisma.contract.findUnique({ where: { id: contractId } });
   if (!contract) return null;
 
@@ -110,6 +118,7 @@ export async function getSignUrls(contractId: string) {
 }
 
 export async function getContractCriticalInfo(contractId: string) {
+  await requireAuth();
   const contract = await prisma.contract.findUnique({
     where: { id: contractId }
   });

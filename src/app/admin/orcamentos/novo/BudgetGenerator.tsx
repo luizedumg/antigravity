@@ -5,6 +5,7 @@ import { createBudget, sendBudgetToN8N } from "@/actions/budgets";
 import { Loader2, Calculator, Send, Check, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import WhatsAppInput from "./WhatsAppInput";
+import { roundMoney } from "@/lib/money";
 
 // ── Utilitário: extrair nome-base do hospital de uma variável ──
 function extractHospitalBase(name: string): string | null {
@@ -39,6 +40,8 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [warn, setWarn] = useState<{ msg: string; link: string } | null>(null);
   
   const [patientName, setPatientName] = useState(cloneBudget?.patientName || "");
   const [patientWhatsApp, setPatientWhatsApp] = useState(cloneBudget?.patientWhatsApp || "");
@@ -169,12 +172,25 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
     globalVariables.forEach((v: any) => {
       if (selectedVariables[v.id]) total += v.price;
     });
-    return Math.max(0, total - discount);
+    return roundMoney(Math.max(0, total - discount));
   };
 
   const handleGenerate = async () => {
-    if (!patientName || !selectedTemplateId) {
-      alert("Por favor, preencha o nome do paciente e selecione um modelo.");
+    setErrorMsg("");
+    setWarn(null);
+
+    if (!patientName.trim() || !selectedTemplateId) {
+      setErrorMsg("Preencha o nome do paciente e selecione um procedimento.");
+      return;
+    }
+    // Valida e-mail (se informado) e WhatsApp (se informado).
+    if (patientEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientEmail.trim())) {
+      setErrorMsg("O e-mail informado não parece válido.");
+      return;
+    }
+    const waDigits = patientWhatsApp.replace(/\D/g, "");
+    if (waDigits && waDigits.length < 12) {
+      setErrorMsg("O WhatsApp parece incompleto (inclua DDI + DDD + número).");
       return;
     }
 
@@ -193,17 +209,28 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
       variablesSelectedJson: JSON.stringify(selectedVarsList),
     });
 
-    if (res.success && res.data) {
-      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
-      if (webhookUrl) {
-         await sendBudgetToN8N(res.data.id, webhookUrl);
-      }
-      setSuccess(true);
-      setTimeout(() => router.push("/admin/orcamentos"), 2000);
-    } else {
-      alert("Erro ao gerar orçamento: " + res.error);
+    if (!res.success || !res.data) {
+      setErrorMsg("Erro ao gerar orçamento: " + (res.error || "tente novamente."));
       setLoading(false);
+      return;
     }
+
+    const magicLink = `${window.location.origin}/orcamento/${res.data.magicLinkId}`;
+    const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+
+    // Só reporta sucesso completo se o envio automático ao paciente ocorreu.
+    if (webhookUrl) {
+      const n8nRes = await sendBudgetToN8N(res.data.id, webhookUrl);
+      if (n8nRes?.success) {
+        setSuccess(true);
+        setTimeout(() => router.push("/admin/orcamentos"), 2000);
+        return;
+      }
+      setWarn({ msg: "Orçamento salvo, mas o envio automático ao paciente falhou. Envie o link manualmente:", link: magicLink });
+    } else {
+      setWarn({ msg: "Orçamento salvo. O envio automático não está configurado — copie e envie o link ao paciente:", link: magicLink });
+    }
+    setLoading(false);
   };
 
   // Agrupar variáveis por categoria para renderizar o checklist
@@ -301,7 +328,14 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                     {filteredVars.map((v: any) => (
-                      <label key={v.id} onClick={() => handleToggleVariable(v.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', background: selectedVariables[v.id] ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.2s' }}>
+                      <label key={v.id} style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', background: selectedVariables[v.id] ? 'rgba(37,99,235,0.05)' : 'transparent', transition: 'all 0.2s' }}>
+                        {/* Checkbox real (focável por teclado), visualmente oculto */}
+                        <input
+                          type="checkbox"
+                          checked={!!selectedVariables[v.id]}
+                          onChange={() => handleToggleVariable(v.id)}
+                          style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                        />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           <div style={{ width: '22px', height: '22px', borderRadius: '6px', border: selectedVariables[v.id] ? 'none' : '1px solid #ccc', background: selectedVariables[v.id] ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {selectedVariables[v.id] && <Check size={14} color="white" />}
@@ -380,6 +414,33 @@ export default function BudgetGenerator({ templates, globalVariables, cloneBudge
                   R$ {calculateTotal().toLocaleString('pt-BR')}
                 </p>
               </div>
+
+              {errorMsg && (
+                <div role="alert" style={{ marginTop: '1rem', padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.9rem' }}>
+                  ⚠️ {errorMsg}
+                </div>
+              )}
+
+              {warn && (
+                <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '8px', color: '#fcd34d', fontSize: '0.9rem' }}>
+                  <p style={{ marginBottom: '0.6rem' }}>⚠️ {warn.msg}</p>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <input readOnly value={warn.link} onFocus={(e) => e.currentTarget.select()} style={{ flex: '1 1 200px', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(0,0,0,0.2)', color: 'white', fontSize: '0.8rem' }} />
+                    <button
+                      onClick={async () => { try { await navigator.clipboard.writeText(warn.link); } catch {} }}
+                      style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', background: 'var(--primary)', color: 'white', cursor: 'pointer', fontSize: '0.85rem' }}
+                    >
+                      Copiar link
+                    </button>
+                    <button
+                      onClick={() => router.push("/admin/orcamentos")}
+                      style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: 'white', cursor: 'pointer', fontSize: '0.85rem' }}
+                    >
+                      Ir para orçamentos
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={handleGenerate}

@@ -1,7 +1,5 @@
 'use server';
 
-import { sendStatusNotification } from './whatsapp';
-
 // Palavras-chave que identificam campos críticos
 const CRITICAL_PATTERNS: Record<string, string[]> = {
   'Uso de Imagem': ['imagem', 'foto', 'image', 'fotografia', 'video', 'filmagem'],
@@ -71,25 +69,36 @@ export async function sendPatientAlerts(data: {
   const groupNumber = '120363407792704523@g.us';
   const recipients = [doctorNumber, groupNumber];
 
-  if (EVOLUTION_API_URL && EVOLUTION_API_KEY && EVOLUTION_INSTANCE) {
-    const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
-    
-    for (const number of recipients) {
-      try {
-        await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVOLUTION_API_KEY
-          },
-          body: JSON.stringify({ number, text: message })
-        });
+  // Sem credenciais da Evolution API não há como enviar — reporta falha real
+  // (alerta médico não pode dar "sucesso" silencioso).
+  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE) {
+    console.error('[Alerta Médico] ❌ Evolution API não configurada — alerta NÃO enviado.');
+    return { alertsSent: false };
+  }
+
+  const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
+  let anySent = false;
+
+  for (const number of recipients) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY
+        },
+        body: JSON.stringify({ number, text: message })
+      });
+      if (res.ok) {
+        anySent = true;
         console.log(`[Alerta Médico] ✅ Enviado para ${number}`);
-      } catch (err) {
-        console.error(`[Alerta Médico] ❌ Erro ao enviar para ${number}:`, err);
+      } else {
+        console.error(`[Alerta Médico] ❌ Falha (HTTP ${res.status}) ao enviar para ${number}`);
       }
+    } catch (err) {
+      console.error(`[Alerta Médico] ❌ Erro ao enviar para ${number}:`, err);
     }
   }
 
-  return { alertsSent: true };
+  return { alertsSent: anySent };
 }

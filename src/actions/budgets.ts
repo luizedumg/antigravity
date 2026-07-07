@@ -2,11 +2,27 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { requireAuth } from "@/lib/auth";
+import { checkPin } from "@/lib/adminPin";
+import { roundMoney } from "@/lib/money";
 
 export async function getBudgets() {
   try {
+    await requireAuth();
     const budgets = await prisma.budget.findMany({
       orderBy: { createdAt: "desc" },
+      take: 300,
+      select: {
+        id: true,
+        patientName: true,
+        patientWhatsApp: true,
+        patientEmail: true,
+        surgeryType: true,
+        status: true,
+        totalPrice: true,
+        magicLinkId: true,
+        createdAt: true,
+      },
     });
     return { success: true, data: budgets };
   } catch (error: any) {
@@ -17,6 +33,7 @@ export async function getBudgets() {
 
 export async function getBudgetById(id: string) {
   try {
+    await requireAuth();
     const budget = await prisma.budget.findUnique({
       where: { id },
     });
@@ -53,6 +70,30 @@ export async function createBudget(data: {
   variablesSelectedJson: string;
 }) {
   try {
+    await requireAuth();
+
+    // Recomputa o total no servidor a partir do preço-base + variáveis
+    // selecionadas − desconto (não confia no totalPrice vindo do cliente) e
+    // arredonda todos os valores monetários para 2 casas.
+    const basePrice = roundMoney(data.basePrice);
+    const discount = roundMoney(data.discount || 0);
+    let variablesCost = 0;
+    try {
+      const vars = JSON.parse(data.variablesSelectedJson);
+      if (Array.isArray(vars)) {
+        variablesCost = vars.reduce(
+          (acc: number, v: any) => acc + (typeof v?.price === "number" ? v.price : 0),
+          0
+        );
+      }
+    } catch {
+      // JSON inválido: mantém variablesCost = 0 e usa o total informado como fallback.
+      variablesCost = NaN;
+    }
+    const totalPrice = Number.isNaN(variablesCost)
+      ? roundMoney(data.totalPrice)
+      : roundMoney(Math.max(0, basePrice + variablesCost - discount));
+
     const budget = await prisma.budget.create({
       data: {
         patientName: data.patientName,
@@ -60,9 +101,9 @@ export async function createBudget(data: {
         patientWhatsApp: data.patientWhatsApp || null,
         patientEmail: data.patientEmail || null,
         surgeryType: data.surgeryType,
-        basePrice: data.basePrice,
-        discount: data.discount || 0,
-        totalPrice: data.totalPrice,
+        basePrice,
+        discount,
+        totalPrice,
         variablesSelectedJson: data.variablesSelectedJson,
         status: "GERADO",
       },
@@ -97,7 +138,8 @@ export async function updateBudgetStatus(id: string, status: string, shouldReval
 
 export async function deleteBudget(id: string, pin: string) {
   try {
-    if (pin !== "1986") {
+    await requireAuth();
+    if (!checkPin(pin)) {
       return { success: false, error: "PIN incorreto. Ação não autorizada." };
     }
 
@@ -117,6 +159,7 @@ export async function deleteBudget(id: string, pin: string) {
 
 export async function sendBudgetToN8N(budgetId: string, n8nWebhookUrl: string) {
   try {
+    await requireAuth();
     const budget = await prisma.budget.findUnique({
       where: { id: budgetId }
     });

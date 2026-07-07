@@ -2,9 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { requireAuth } from "@/lib/auth";
 
 export async function getBudgetTemplates() {
   try {
+    await requireAuth();
     const templates = await prisma.budgetTemplate.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -17,6 +19,7 @@ export async function getBudgetTemplates() {
 
 export async function getBudgetTemplateById(id: string) {
   try {
+    await requireAuth();
     const template = await prisma.budgetTemplate.findUnique({
       where: { id },
     });
@@ -34,6 +37,7 @@ export async function createBudgetTemplate(data: {
   variablesJson: string;
 }) {
   try {
+    await requireAuth();
     const template = await prisma.budgetTemplate.create({
       data: {
         name: data.name,
@@ -57,6 +61,7 @@ export async function updateBudgetTemplate(
   data: { name: string; basePrice: number; variablesJson: string }
 ) {
   try {
+    await requireAuth();
     const template = await prisma.budgetTemplate.update({
       where: { id },
       data: {
@@ -75,6 +80,7 @@ export async function updateBudgetTemplate(
 
 export async function deleteBudgetTemplate(id: string) {
   try {
+    await requireAuth();
     await prisma.budgetTemplate.delete({
       where: { id },
     });

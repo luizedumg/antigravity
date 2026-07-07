@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { bearerMatches } from '@/lib/tokens';
 
 const SYSTEM_TOKEN = process.env.API_SECRET_TOKEN || 'antigravity-ai-secret-2026';
 
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${SYSTEM_TOKEN}`) {
+    if (!bearerMatches(authHeader, SYSTEM_TOKEN)) {
       return NextResponse.json({ error: 'Acesso negado.' }, { status: 401 });
     }
 
@@ -19,17 +20,18 @@ export async function GET(req: Request) {
 
     const cleanName = name.trim();
 
-    // Encontra o contrato mais recente para o paciente
-    const contract = await prisma.contract.findFirst({
-      where: {
-        patientName: {
-          contains: cleanName
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+    // Preferir match EXATO do nome para não retornar o paciente errado; só cai
+    // no `contains` se não houver correspondência exata (mantém compatibilidade
+    // com chamadas que passam nome parcial).
+    const contract =
+      (await prisma.contract.findFirst({
+        where: { patientName: { equals: cleanName } },
+        orderBy: { createdAt: 'desc' },
+      })) ||
+      (await prisma.contract.findFirst({
+        where: { patientName: { contains: cleanName } },
+        orderBy: { createdAt: 'desc' },
+      }));
 
     if (contract) {
       return NextResponse.json({
@@ -53,7 +55,7 @@ export async function GET(req: Request) {
   } catch (error: any) {
     console.error('[Integration Check Contract] Erro:', error);
     return NextResponse.json(
-      { error: 'Erro interno no servidor.', details: error.message },
+      { error: 'Erro interno no servidor.' },
       { status: 500 }
     );
   }

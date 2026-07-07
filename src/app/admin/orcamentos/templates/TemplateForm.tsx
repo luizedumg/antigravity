@@ -19,6 +19,7 @@ export default function TemplateForm({ templates, globalVariables }: { templates
   const [loadingVar, setLoadingVar] = useState(false);
 
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,11 +52,31 @@ export default function TemplateForm({ templates, globalVariables }: { templates
   };
 
   const handleDeleteTemplate = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este modelo?")) await deleteBudgetTemplate(id);
+    if (!confirm("Tem certeza que deseja excluir este modelo?")) return;
+    setError("");
+    setDeletingId(id);
+    try {
+      const res = await deleteBudgetTemplate(id);
+      if (!res.success) setError(res.error || "Erro ao excluir modelo.");
+    } catch {
+      setError("Falha ao excluir o modelo. Tente novamente.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleDeleteVariable = async (id: string) => {
-    if (confirm("Excluir este adicional global?")) await deleteBudgetVariable(id);
+    if (!confirm("Excluir este adicional global?")) return;
+    setError("");
+    setDeletingId(id);
+    try {
+      const res = await deleteBudgetVariable(id);
+      if (!res.success) setError(res.error || "Erro ao excluir adicional.");
+    } catch {
+      setError("Falha ao excluir o adicional. Tente novamente.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   // Agrupar variáveis por categoria
@@ -68,8 +89,20 @@ export default function TemplateForm({ templates, globalVariables }: { templates
   const categories = ["Hospitais", "Anestesista", "Cirurgias Complementares", "Exames", "Outros"];
 
   return (
+    <>
+    {error && (
+      <div role="alert" style={{
+        marginBottom: '1.5rem', padding: '0.9rem 1.1rem',
+        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)',
+        borderRadius: '10px', color: 'var(--danger, #ef4444)', fontSize: '0.95rem',
+        display: 'flex', alignItems: 'center', gap: '0.5rem'
+      }}>
+        ⚠️ {error}
+        <button onClick={() => setError("")} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1 }} aria-label="Fechar aviso">×</button>
+      </div>
+    )}
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
-      
+
       {/* COLUNA 1: MODELOS BASE (Cirurgias) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         <div className="glass-panel" style={{ borderTop: '4px solid var(--primary)' }}>
@@ -101,8 +134,8 @@ export default function TemplateForm({ templates, globalVariables }: { templates
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>{tpl.name}</h3>
                   <p style={{ opacity: 0.7, fontSize: '0.9rem' }}>Honorário: R$ {tpl.basePrice.toLocaleString('pt-BR')}</p>
                 </div>
-                <button onClick={() => handleDeleteTemplate(tpl.id)} className="btn-danger" style={{ padding: '0.5rem', minHeight: 'auto' }}>
-                  <Trash2 size={18} />
+                <button onClick={() => handleDeleteTemplate(tpl.id)} disabled={deletingId === tpl.id} className="btn-danger" style={{ padding: '0.5rem', minHeight: 'auto' }}>
+                  {deletingId === tpl.id ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
                 </button>
               </div>
             ))}
@@ -164,8 +197,8 @@ export default function TemplateForm({ templates, globalVariables }: { templates
                           </p>
                           <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>R$ {v.price.toLocaleString('pt-BR')}</p>
                         </div>
-                        <button onClick={() => handleDeleteVariable(v.id)} className="btn-danger" style={{ padding: '0.4rem', minHeight: 'auto', background: 'transparent', color: 'var(--danger)', border: 'none', boxShadow: 'none' }}>
-                          <Trash2 size={18} />
+                        <button onClick={() => handleDeleteVariable(v.id)} disabled={deletingId === v.id} className="btn-danger" style={{ padding: '0.4rem', minHeight: 'auto', background: 'transparent', color: 'var(--danger)', border: 'none', boxShadow: 'none' }}>
+                          {deletingId === v.id ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
                         </button>
                       </div>
                     ))}
@@ -177,5 +210,6 @@ export default function TemplateForm({ templates, globalVariables }: { templates
         </div>
       </div>
     </div>
+    </>
   );
 }

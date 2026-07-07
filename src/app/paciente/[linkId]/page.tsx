@@ -58,6 +58,8 @@ export default function WizardPaciente() {
   const [nomeResponsavel, setNomeResponsavel] = useState<string | null>(null);
   const [whatsAppSignSent, setWhatsAppSignSent] = useState(false);
   const [urlsExpired, setUrlsExpired] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [recusado, setRecusado] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -68,6 +70,12 @@ export default function WizardPaciente() {
           const t = await getTemplateByName(c.surgeryType);
           if (t) setTemplate(t);
 
+          // Contrato recusado: mostra tela dedicada (não reabrir assinatura).
+          if (c.status === 'RECUSADO') {
+            setRecusado(true);
+            setLoading(false);
+            return;
+          }
           // Se o contrato já foi totalmente assinado ou salvo no Drive
           if (['ASSINADO', 'DRIVE_OK'].includes(c.status)) {
             setStep(4);
@@ -110,14 +118,17 @@ export default function WizardPaciente() {
   };
 
   const handleGoToPreview = async () => {
+    setErrorMsg('');
     const questionsList = template?.questionsJson ? JSON.parse(template.questionsJson) : [];
     for (const q of questionsList) {
       if (!dynamicAnswers[q.key] || dynamicAnswers[q.key].trim() === '') {
-        return alert(`Por favor, preencha o campo obrigatório: ${q.label}`);
+        setErrorMsg(`Por favor, preencha o campo obrigatório: ${q.label}`);
+        return;
       }
       // Validação algorítmica do CPF (dígitos verificadores)
       if (isCpfQuestion(q) && !validateCpf(dynamicAnswers[q.key])) {
-        return alert('O CPF informado é inválido. Por favor, verifique os números digitados.\n\nDica: o CPF deve ter exatamente 11 dígitos numéricos.');
+        setErrorMsg('O CPF informado é inválido. Verifique os números digitados (11 dígitos).');
+        return;
       }
     }
 
@@ -147,7 +158,8 @@ export default function WizardPaciente() {
       
       setStep(2);
     } catch (e: any) {
-      alert("Houve um erro ao processar seu documento: " + (e.message || JSON.stringify(e)));
+      console.error('[Paciente] Erro ao preparar documento:', e);
+      setErrorMsg('Não conseguimos preparar seu documento agora. Tente novamente em instantes ou fale com a clínica.');
     }
     setLoading(false);
   };
@@ -182,7 +194,7 @@ export default function WizardPaciente() {
       }
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Erro ao conectar com servidor de assinatura.");
+      setErrorMsg('Não conseguimos preparar sua assinatura agora. Tente novamente em instantes ou fale com a clínica.');
     } finally {
       setLoading(false);
     }
@@ -193,10 +205,33 @@ export default function WizardPaciente() {
   }
 
   if (!contract) {
-    return <div style={{ textAlign: 'center', marginTop: '10vh' }}>Link de acesso inválido ou expirado.</div>;
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
+        <div style={{ maxWidth: '420px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔗</div>
+          <h2 style={{ fontSize: '1.4rem', marginBottom: '0.75rem', color: 'var(--primary)' }}>Link inválido ou expirado</h2>
+          <p style={{ opacity: 0.75, lineHeight: 1.6, marginBottom: '1.5rem' }}>Não localizamos este contrato. Se você recebeu este link do consultório, fale conosco pelo WhatsApp que geramos um novo.</p>
+          <a href="https://wa.me/5534997346139" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#25D366', color: 'white', padding: '0.85rem 1.6rem', borderRadius: '50px', fontWeight: 600, textDecoration: 'none' }}>💬 Falar com o consultório</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (recusado) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center' }}>
+        <div style={{ maxWidth: '440px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📄</div>
+          <h2 style={{ fontSize: '1.4rem', marginBottom: '0.75rem', color: 'var(--danger, #ef4444)' }}>Contrato recusado</h2>
+          <p style={{ opacity: 0.75, lineHeight: 1.6, marginBottom: '1.5rem' }}>Este contrato foi recusado e não pode mais ser assinado. Se foi um engano ou você deseja retomar, entre em contato com a clínica para gerarmos um novo documento.</p>
+          <a href="https://wa.me/5534997346139" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#25D366', color: 'white', padding: '0.85rem 1.6rem', borderRadius: '50px', fontWeight: 600, textDecoration: 'none' }}>💬 Falar com a clínica</a>
+        </div>
+      </div>
+    );
   }
 
   const questions = template?.questionsJson ? JSON.parse(template.questionsJson) : [];
+  const STEP_LABELS = ['Dados', 'Revisão', 'Assinatura'];
 
   return (
     <main style={{ padding: '0', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--background)' }}>
@@ -208,7 +243,37 @@ export default function WizardPaciente() {
 
       <div className="container" style={{ flex: 1, padding: '2rem 1rem', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
         <div className="glass-panel" style={{ padding: '2.5rem', borderTop: '4px solid var(--primary)', borderRadius: '16px' }}>
-          
+
+          {/* ═══ Indicador de progresso (passos 1–3) ═══ */}
+          {step <= 3 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
+              {STEP_LABELS.map((label, i) => {
+                const n = i + 1;
+                const done = step > n;
+                const active = step === n;
+                return (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: active || done ? 1 : 0.4 }}>
+                      <span style={{ width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, color: 'white', background: done ? 'var(--success, #10b981)' : active ? 'var(--primary)' : '#cbd5e1' }}>
+                        {done ? '✓' : n}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: active ? 700 : 500 }}>{label}</span>
+                    </div>
+                    {n < STEP_LABELS.length && <span style={{ width: '20px', height: '2px', background: '#cbd5e1' }} />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ═══ Aviso de erro inline (substitui alert() nativo) ═══ */}
+          {errorMsg && (
+            <div role="alert" style={{ marginBottom: '1.5rem', padding: '0.9rem 1.1rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '10px', color: 'var(--danger, #ef4444)', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              ⚠️ <span style={{ flex: 1 }}>{errorMsg}</span>
+              <button onClick={() => setErrorMsg('')} aria-label="Fechar aviso" style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+            </div>
+          )}
+
           {step === 1 && (
             <div style={{ animation: 'fadeIn 0.5s' }}>
               <div style={{ marginBottom: '2rem', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '1.5rem' }}>
@@ -269,10 +334,10 @@ export default function WizardPaciente() {
                       )}
                     </div>
                   ) : isBooleanField ? (
-                    <select 
-                      className="input-field" 
+                    <select
+                      className="input-field"
                       onChange={e => handleAnswerChange(q.key, e.target.value)}
-                      defaultValue=""
+                      value={dynamicAnswers[q.key] || ''}
                       style={{ padding: '1rem' }}
                     >
                        <option value="" disabled>Selecione uma resposta...</option>
@@ -280,8 +345,9 @@ export default function WizardPaciente() {
                        <option value="Não">Não</option>
                     </select>
                   ) : (
-                    <input 
-                      className="input-field" 
+                    <input
+                      className="input-field"
+                      value={dynamicAnswers[q.key] || ''}
                       onChange={e => handleAnswerChange(q.key, e.target.value)}
                       placeholder="Sua resposta..."
                       style={{ padding: '1rem' }}
@@ -498,11 +564,20 @@ export default function WizardPaciente() {
                     opacity: 0.7,
                     lineHeight: '1.6'
                   }}>
-                    💡 <strong>Dica:</strong> Você pode fechar esta tela com segurança. {responsavelSignUrl 
-                      ? 'Os links de assinatura de ambas as partes foram enviados ao seu WhatsApp.' 
-                      : 'O link de assinatura foi enviado ao seu WhatsApp.'}
-                    <br />
-                    Basta abrir o WhatsApp e clicar no link correspondente a qualquer momento.
+                    {whatsAppSignSent ? (
+                      <>
+                        💡 <strong>Dica:</strong> Você pode fechar esta tela com segurança. {responsavelSignUrl
+                          ? 'Os links de assinatura de ambas as partes foram enviados ao seu WhatsApp.'
+                          : 'O link de assinatura foi enviado ao seu WhatsApp.'}
+                        <br />
+                        Basta abrir o WhatsApp e clicar no link correspondente a qualquer momento.
+                      </>
+                    ) : (
+                      <>
+                        💡 <strong>Dica:</strong> Assine {responsavelSignUrl ? 'pelos botões' : 'pelo botão'} acima nesta tela.
+                        Se preferir, deixe esta aba aberta — {responsavelSignUrl ? 'os links continuam' : 'o link continua'} disponíveis aqui.
+                      </>
+                    )}
                   </div>
                 </div>
               )}

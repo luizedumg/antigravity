@@ -31,14 +31,18 @@ function getDriveClient() {
 }
 
 /**
- * Formata a data para o nome do arquivo: DD-MM-YYYY
+ * Formata a data para o nome do arquivo: DD-MM-YYYY, no fuso do consultório
+ * (America/Sao_Paulo) — evita que o servidor em UTC gere a data de um dia errado.
  */
 function formatDateForFilename(date: Date): string {
-  const d = new Date(date);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}-${month}-${year}`;
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(new Date(date));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('day')}-${get('month')}-${get('year')}`;
 }
 
 /**

@@ -1,18 +1,20 @@
 import Link from "next/link";
+import Image from "next/image";
 import LogoutButton from "@/components/LogoutButton";
-
-export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   return (
     <main className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      
+
       {/* LOGO */}
       <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-        <img 
-          src="/logo.png" 
-          alt="Logotipo L.E.M. Luiz Eduardo Mamede" 
-          style={{ maxHeight: '110px', objectFit: 'contain' }} 
+        <Image
+          src="/logo.png"
+          alt="Logotipo L.E.M. Luiz Eduardo Mamede"
+          width={264}
+          height={110}
+          priority
+          style={{ height: '110px', width: 'auto', objectFit: 'contain' }}
         />
       </div>
 

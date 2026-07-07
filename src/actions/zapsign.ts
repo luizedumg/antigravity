@@ -3,6 +3,8 @@
 import { prisma } from '@/lib/prisma';
 import { generateDocument } from './document';
 import { getTemplateByName } from './contracts';
+import { requireAuth } from '@/lib/auth';
+import { uploadSignedPdfToDrive } from './googledrive';
 import fs from 'fs';
 import path from 'path';
 import PizZip from 'pizzip';
@@ -178,6 +180,7 @@ export async function sendToZapsign(contractId: string) {
 }
 
 export async function checkZapsignDocumentStatus(contractId: string) {
+  await requireAuth();
   const contract = await prisma.contract.findUnique({ where: { id: contractId } });
   if (!contract || !contract.zapsignToken) return null;
 
@@ -190,15 +193,31 @@ export async function checkZapsignDocumentStatus(contractId: string) {
     const data = await response.json();
 
     // ── TOTALMENTE ASSINADO ──
-    if (data.status === 'signed' && !['ASSINADO', 'DRIVE_OK'].includes(contract.status)) {
-       // Re-ler o contrato para evitar race condition com o webhook
-       const fresh = await prisma.contract.findUnique({ where: { id: contractId } });
-       if (fresh && !['ASSINADO', 'DRIVE_OK'].includes(fresh.status)) {
-         await prisma.contract.update({
-           where: { id: contractId },
-           data: { status: 'ASSINADO' }
-         });
-         console.log(`[Polling] ✅ Contrato ${contractId} → ASSINADO (fallback — webhook não processou)`);
+    if (data.status === 'signed') {
+       if (!['ASSINADO', 'DRIVE_OK'].includes(contract.status)) {
+         // Re-ler o contrato para evitar race condition com o webhook
+         const fresh = await prisma.contract.findUnique({ where: { id: contractId } });
+         if (fresh && !['ASSINADO', 'DRIVE_OK'].includes(fresh.status)) {
+           await prisma.contract.update({
+             where: { id: contractId },
+             data: { status: 'ASSINADO' }
+           });
+           console.log(`[Polling] ✅ Contrato ${contractId} → ASSINADO (fallback — webhook não processou)`);
+         }
+       }
+
+       // Garante o arquivamento no Drive mesmo que o webhook não tenha subido o
+       // PDF (uploadSignedPdfToDrive é idempotente: sai cedo se já há arquivo).
+       const afterSign = await prisma.contract.findUnique({ where: { id: contractId } });
+       if (afterSign && !afterSign.googleDriveFileId) {
+         const up = await uploadSignedPdfToDrive(contractId);
+         if (up.success && afterSign.status !== 'DRIVE_OK') {
+           await prisma.contract.update({
+             where: { id: contractId },
+             data: { status: 'DRIVE_OK' }
+           });
+           console.log(`[Polling] ☁️ PDF arquivado no Drive (fallback) → DRIVE_OK`);
+         }
        }
     }
     // ── ASSINATURA PARCIAL (algum signatário assinou, mas não todos) ──
@@ -239,6 +258,7 @@ export async function checkZapsignDocumentStatus(contractId: string) {
  * Retorna a sign_url do signer do médico, permitindo assinatura direta do painel admin.
  */
 export async function getDoctorSignUrl(contractId: string): Promise<{ success: boolean; signUrl?: string; error?: string; doctorStatus?: string }> {
+  await requireAuth();
   const contract = await prisma.contract.findUnique({ where: { id: contractId } });
   if (!contract || !contract.zapsignToken) {
     return { success: false, error: 'Contrato não possui documento na ZapSign.' };

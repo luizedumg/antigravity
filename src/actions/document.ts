@@ -49,15 +49,34 @@ export async function generateDocument(contractId: string) {
   const content = fs.readFileSync(templatePath, 'binary');
   const zip = new PizZip(content);
   
+  // Escapa caracteres reservados do XML para não corromper o document.xml
+  // (ex.: um "&" ou "<" no nome/endereço quebraria o DOCX).
+  function escapeXml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Escapa metacaracteres de RegExp em cada caractere da chave (ex.: uma tag
+  // com "(" ou "." não quebra a construção do padrão).
+  function escapeRegexChar(c: string): string {
+    return c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   // ── Função auxiliar: substitui apenas tags de chaves DUPLAS {{key}} ──
-  // Tags de chaves TRIPLAS {{{anchor}}} são PRESERVADAS intactas para a ZapSign
+  // Tags de chaves TRIPLAS {{{anchor}}} são PRESERVADAS intactas para a ZapSign.
+  // Tags com valor vazio são substituídas por "" (remove o placeholder órfão,
+  // ex.: {{cpf_paciente}} quando o CPF não foi coletado).
   function replaceDataInXml(xml: string): string {
     for (const [key, value] of Object.entries(mergedData)) {
-      if (!value) continue;
-      const spacedKey = key.split('').join('(?:<[^>]*>)*');
+      const spacedKey = key.split('').map(escapeRegexChar).join('(?:<[^>]*>)*');
       const patternStr = '(?<!\\{)\\{\\{(?:<[^>]*>)*' + spacedKey + '(?:<[^>]*>)*\\}\\}(?!\\})';
       const regex = new RegExp(patternStr, 'g');
-      xml = xml.replace(regex, value.toString());
+      const safeValue = escapeXml((value ?? '').toString());
+      // Função como 2º argumento: desativa padrões especiais de $ na substituição.
+      xml = xml.replace(regex, () => safeValue);
     }
     return xml;
   }

@@ -50,6 +50,8 @@ export default function NovoLinkPaciente() {
   const [whatsappSent, setWhatsappSent] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [whatsappError, setWhatsappError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [copyError, setCopyError] = useState(false);
 
   // Configuração ativa do país selecionado
   const currentConfig = COUNTRY_CONFIGS.find(c => c.code === countryCode) || COUNTRY_CONFIGS[0];
@@ -70,34 +72,40 @@ export default function NovoLinkPaciente() {
     : `${countryCode}${phoneNumber}`;
 
   const handleGenerate = async () => {
+    setFormError('');
     if (!patientName.trim()) {
-      return alert("Preencha o nome do paciente.");
+      setFormError('Preencha o nome do paciente.');
+      return;
     }
     // Validação adaptativa por país
     if (currentConfig.hasSeparateDDD) {
       if (!ddd || ddd.length < (currentConfig.dddDigits || 2)) {
-        return alert(`Informe o DDD com ${currentConfig.dddDigits || 2} dígitos.`);
+        setFormError(`Informe o DDD com ${currentConfig.dddDigits || 2} dígitos.`);
+        return;
       }
     }
     if (!phoneNumber || phoneNumber.length < currentConfig.phoneMin) {
-      const range = currentConfig.phoneMin === currentConfig.phoneMax 
-        ? `${currentConfig.phoneMin}` 
+      const range = currentConfig.phoneMin === currentConfig.phoneMax
+        ? `${currentConfig.phoneMin}`
         : `${currentConfig.phoneMin} a ${currentConfig.phoneMax}`;
-      return alert(`Número inválido para ${currentConfig.flag} +${currentConfig.code}.\nInforme ${range} dígitos.\n\nEx: ${currentConfig.example}`);
+      setFormError(`Número inválido para ${currentConfig.flag} +${currentConfig.code}. Informe ${range} dígitos (ex: ${currentConfig.example}).`);
+      return;
     }
     if (phoneNumber.length > currentConfig.phoneMax) {
-      return alert(`Número muito longo para ${currentConfig.flag} +${currentConfig.code}.\nMáximo: ${currentConfig.phoneMax} dígitos.\n\nEx: ${currentConfig.example}`);
+      setFormError(`Número muito longo para ${currentConfig.flag} +${currentConfig.code}. Máximo: ${currentConfig.phoneMax} dígitos.`);
+      return;
     }
     if (!surgeryType) {
-      return alert("Selecione um modelo de contrato.");
+      setFormError('Selecione um modelo de contrato.');
+      return;
     }
     setLoading(true);
-    
+
     try {
-      const contract = await createContract({ 
-        patientName, 
+      const contract = await createContract({
+        patientName,
         patientWhatsApp: fullWhatsAppNumber,
-        surgeryType 
+        surgeryType
       });
       const link = `${window.location.origin}/paciente/${contract.linkId}`;
       setGeneratedLink(link);
@@ -105,16 +113,23 @@ export default function NovoLinkPaciente() {
       setContractId(contract.id);
     } catch (e) {
       console.error(e);
-      alert("Erro ao criar contrato");
+      setFormError('Erro ao criar o contrato. Tente novamente.');
     }
-    
+
     setLoading(false);
   };
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(generatedLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+    setCopyError(false);
+    try {
+      await navigator.clipboard.writeText(generatedLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      // Clipboard indisponível (permissão/contexto inseguro): sinaliza para o
+      // usuário copiar manualmente em vez de mostrar um "copiado" falso.
+      setCopyError(true);
+    }
   };
 
   const sendToWhatsApp = async () => {
@@ -128,14 +143,15 @@ export default function NovoLinkPaciente() {
       });
       if (result.success) {
         setWhatsappSent(true);
-        // Marcar contrato como ENVIADO e notificar médico
+        // Atualização de status/notificação são secundárias: sua eventual falha
+        // NÃO deve virar erro do envio (que foi bem-sucedido). Só registra no log.
         if (contractId) {
-          await updateContractStatus(contractId, 'ENVIADO');
-          await sendStatusNotification({
-            patientName,
-            surgeryType,
-            event: 'ENVIADO'
-          });
+          try {
+            await updateContractStatus(contractId, 'ENVIADO');
+            await sendStatusNotification({ patientName, surgeryType, event: 'ENVIADO' });
+          } catch (postErr) {
+            console.error('[Novo] Falha ao atualizar status/notificar após envio:', postErr);
+          }
         }
       } else {
         setWhatsappError(result.error || 'Erro desconhecido ao enviar mensagem.');
@@ -319,8 +335,14 @@ export default function NovoLinkPaciente() {
               {templates.length === 0 && <p style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.5rem' }}>Nenhum template cadastrado. Acesse a área de Modelos primeiro.</p>}
             </div>
 
+            {formError && (
+              <div role="alert" style={{ marginTop: '1.5rem', padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: '8px', color: 'var(--danger, #ef4444)', fontSize: '0.9rem' }}>
+                ⚠️ {formError}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem' }}>
-              <Link href="/" className="btn-secondary">
+              <Link href="/admin/contratos" className="btn-secondary">
                 Voltar
               </Link>
               <button onClick={handleGenerate} disabled={loading || templates.length === 0} className="btn-primary" style={{ flex: 1, background: 'var(--success)' }}>
@@ -393,7 +415,13 @@ export default function NovoLinkPaciente() {
               >
                 {copied ? '✅ Link Copiado!' : '📋 Copiar Link'}
               </button>
-              
+
+              {copyError && (
+                <p style={{ fontSize: '0.82rem', color: 'var(--warning, #f59e0b)', textAlign: 'center', margin: 0 }}>
+                  Não foi possível copiar automaticamente. Selecione o link acima e copie manualmente.
+                </p>
+              )}
+
               {/* 2. ENVIAR AO WHATSAPP DO PACIENTE */}
               <button 
                 onClick={sendToWhatsApp}

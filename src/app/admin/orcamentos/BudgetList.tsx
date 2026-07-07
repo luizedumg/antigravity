@@ -30,12 +30,21 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
     setDeleteId(null);
     setPin("");
     setLoading(false);
+    router.refresh(); // atualiza a lista após a exclusão
   };
 
-  const handleCopyLink = (magicLinkId: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/orcamento/${magicLinkId}`);
-    setCopiedId(magicLinkId);
-    setTimeout(() => setCopiedId(null), 2000);
+  const handleCopyLink = async (magicLinkId: string) => {
+    const url = `${window.location.origin}/orcamento/${magicLinkId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(magicLinkId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Fallback quando o clipboard não está disponível: abre um prompt com o
+      // link já selecionado para o usuário copiar manualmente (evita "copiado"
+      // falso).
+      window.prompt("Copie o link do orçamento:", url);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -88,6 +97,10 @@ export default function BudgetList({ budgets }: { budgets: any[] }) {
               placeholder="PIN"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pin && !loading) confirmDelete();
+                if (e.key === 'Escape') { setDeleteId(null); setPin(''); setError(''); }
+              }}
               className="input-field"
               style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5em', marginBottom: '1.5rem' }}
               autoFocus

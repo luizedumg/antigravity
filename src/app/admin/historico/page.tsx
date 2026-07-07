@@ -134,19 +134,13 @@ function HistoricoContent() {
       ['PENDENTE', 'ENVIADO', 'VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO'].includes(c.status)
     );
     const interval = setInterval(async () => {
-      // Verificar status na ZapSign para contratos que podem estar travados
-      const stuckContracts = contracts.filter(c =>
-        c.zapsignToken && ['VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO'].includes(c.status)
-      );
-      
-      for (const c of stuckContracts) {
-        try {
-          await checkZapsignDocumentStatus(c.id);
-        } catch (e) {
-          // Erro silencioso — o polling não deve quebrar
-        }
-      }
-      
+      // Verificar status na ZapSign apenas para os contratos ativos mais
+      // recentes (até 8), em PARALELO — evita varredura sequencial de toda a base.
+      const stuckContracts = contracts
+        .filter(c => c.zapsignToken && ['VISUALIZADO', 'ASSINATURA_PARCIAL', 'ASSINADO'].includes(c.status))
+        .slice(0, 8);
+
+      await Promise.allSettled(stuckContracts.map(c => checkZapsignDocumentStatus(c.id)));
       await loadContracts();
     }, hasActive ? 15000 : 60000);
 
@@ -158,29 +152,42 @@ function HistoricoContent() {
     getDistinctSurgeryTypes().then(setSurgeryTypes);
   }, []);
 
-  const handleDelete = async (id: string) => {
-    const confirmed = window.confirm('⚠️ Atenção!\n\nVocê está prestes a excluir este contrato permanentemente.\nEssa ação não pode ser desfeita.\n\nDeseja continuar?');
-    if (!confirmed) return;
-    
-    const pin = window.prompt('Digite o PIN de segurança para confirmar:');
-    if (pin) {
-      setDeletingId(id);
-      try {
-        const res = await deleteContractById(id, pin);
-        if (res && res.error) {
-          alert(res.error);
-        } else {
-          await loadContracts();
-        }
-      } catch (e: any) {
-        alert(e.message || 'Erro inesperado. A exclusão foi cancelada.');
-      }
-      setDeletingId(null);
+  const openDeleteModal = (id: string) => {
+    setDeleteTarget(id);
+    setDeletePin('');
+    setDeleteError('');
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    if (!deletePin.trim()) {
+      setDeleteError('Digite o PIN de segurança.');
+      return;
     }
+    setDeletingId(deleteTarget);
+    setDeleteError('');
+    try {
+      const res = await deleteContractById(deleteTarget, deletePin);
+      if (res && res.error) {
+        setDeleteError(res.error);
+      } else {
+        setDeleteTarget(null);
+        await loadContracts();
+      }
+    } catch (e: any) {
+      setDeleteError(e.message || 'Erro inesperado. A exclusão foi cancelada.');
+    }
+    setDeletingId(null);
   };
 
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [signingId, setSigningId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
+  // Modal de exclusão (substitui window.confirm/prompt/alert nativos)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deletePin, setDeletePin] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   const handleOpenCriticalInfo = async (contractId: string) => {
     setLoadingInfoId(contractId);
@@ -189,31 +196,45 @@ function HistoricoContent() {
       setModalData(info);
       setIsModalOpen(true);
     } catch (e) {
-      alert("Erro ao carregar dados críticos");
+      setActionError('Erro ao carregar os dados críticos. Tente novamente.');
     }
     setLoadingInfoId(null);
   };
 
   const handleCheckStatus = async (contractId: string) => {
     setCheckingId(contractId);
+    setActionError('');
     try {
-      const res = await checkZapsignDocumentStatus(contractId);
-      console.log('[Manual Check]', res);
+      await checkZapsignDocumentStatus(contractId);
       await loadContracts();
     } catch (e) {
       console.error('Erro ao verificar:', e);
+      setActionError('Não foi possível consultar a ZapSign. Tente novamente.');
     }
     setCheckingId(null);
   };
 
   const handleDownloadPdf = async (contractId: string) => {
-    const res = await checkZapsignDocumentStatus(contractId);
-    if (res && res.signedFileUrl) {
-      window.open(res.signedFileUrl, '_blank');
-    } else {
-      alert('PDF assinado ainda não está disponível. O status foi verificado.');
-      await loadContracts();
+    setActionError('');
+    setDownloadingId(contractId);
+    // Abre a aba de forma SÍNCRONA (antes do await) para não ser bloqueada por
+    // popup blockers; depois aponta para a URL do PDF (ou fecha em caso de erro).
+    const win = window.open('', '_blank');
+    try {
+      const res = await checkZapsignDocumentStatus(contractId);
+      if (res && res.signedFileUrl) {
+        if (win) win.location.href = res.signedFileUrl;
+        else window.location.href = res.signedFileUrl;
+      } else {
+        if (win) win.close();
+        setActionError('PDF assinado ainda não disponível. Status atualizado.');
+        await loadContracts();
+      }
+    } catch (e) {
+      if (win) win.close();
+      setActionError('Não foi possível baixar o PDF. Tente novamente.');
     }
+    setDownloadingId(null);
   };
 
   const handleDoctorSign = async (contractId: string) => {
@@ -432,6 +453,7 @@ function HistoricoContent() {
               <option value="ASSINATURA_PARCIAL">Assinatura Parcial</option>
               <option value="ASSINADO">Assinado</option>
               <option value="DRIVE_OK">Concluído (Drive)</option>
+              <option value="CONCLUIDOS">Assinados (Assinado + Drive)</option>
               <option value="RECUSADO">Recusado</option>
             </select>
           </div>
@@ -515,10 +537,11 @@ function HistoricoContent() {
                 {contract.zapsignToken && (
                   <button
                     onClick={() => handleDownloadPdf(contract.id)}
+                    disabled={downloadingId === contract.id}
                     className="btn-success"
                     style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', minHeight: '40px' }}
                   >
-                    📥 Baixar PDF
+                    {downloadingId === contract.id ? '⏳ Buscando...' : '📥 Baixar PDF'}
                   </button>
                 )}
 
@@ -612,7 +635,7 @@ function HistoricoContent() {
 
                 {/* Excluir — ícone discreto para todos os contratos */}
                 <button
-                  onClick={() => handleDelete(contract.id)}
+                  onClick={() => openDeleteModal(contract.id)}
                   disabled={deletingId === contract.id}
                   title="Excluir contrato"
                   style={{
@@ -636,11 +659,53 @@ function HistoricoContent() {
         </div>
 
         <div style={{ marginTop: '2rem' }}>
-          <Link href="/" className="btn-secondary">
+          <Link href="/admin/contratos" className="btn-secondary">
             Voltar ao Dashboard
           </Link>
         </div>
       </div>
+
+      {/* ══════ TOAST DE ERRO DE AÇÃO ══════ */}
+      {actionError && (
+        <div role="alert" style={{ position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10000, background: 'rgba(239,68,68,0.95)', color: 'white', padding: '0.85rem 1.25rem', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: '0.75rem', maxWidth: '90vw' }}>
+          ⚠️ <span>{actionError}</span>
+          <button onClick={() => setActionError('')} aria-label="Fechar" style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+        </div>
+      )}
+
+      {/* ══════ MODAL DE EXCLUSÃO (PIN) ══════ */}
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={() => setDeleteTarget(null)}>
+          <div className="glass-panel" style={{ width: '90%', maxWidth: '420px', padding: '2rem', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--danger, #ef4444)', fontSize: '1.3rem' }}>Excluir contrato</h2>
+            <p style={{ opacity: 0.75, fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+              Esta ação é permanente e não pode ser desfeita. Digite o PIN de segurança para confirmar.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              value={deletePin}
+              onChange={e => { setDeletePin(e.target.value); setDeleteError(''); }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') confirmDelete();
+                if (e.key === 'Escape') setDeleteTarget(null);
+              }}
+              placeholder="PIN de segurança"
+              className="input-field"
+              style={{ width: '100%', padding: '0.9rem', textAlign: 'center', letterSpacing: '0.2em' }}
+            />
+            {deleteError && (
+              <p style={{ color: 'var(--danger, #ef4444)', fontSize: '0.85rem', marginTop: '0.6rem' }}>⚠️ {deleteError}</p>
+            )}
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button onClick={() => setDeleteTarget(null)} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+              <button onClick={confirmDelete} disabled={deletingId === deleteTarget} className="btn-danger" style={{ flex: 1 }}>
+                {deletingId === deleteTarget ? 'Excluindo…' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══════ MODAL DE DADOS CRÍTICOS ══════ */}
       {isModalOpen && (

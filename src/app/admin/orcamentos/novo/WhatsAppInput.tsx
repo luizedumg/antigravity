@@ -34,6 +34,7 @@ export default function WhatsAppInput({ value, onChange }: WhatsAppInputProps) {
   const [areaCode, setAreaCode] = useState("");
   const [phone, setPhone] = useState("");
   const [initialized, setInitialized] = useState(false);
+  const [touched, setTouched] = useState(false);
 
   // Buscar config do país selecionado
   const getCountryConfig = () => {
@@ -73,30 +74,36 @@ export default function WhatsAppInput({ value, onChange }: WhatsAppInputProps) {
     }
   }, []);
 
-  // Notificar o pai sempre que algo mudar
+  // Notificar o pai sempre que algo mudar. Após a inicialização OU qualquer
+  // interação do usuário (touched), propaga inclusive quando os campos ficam
+  // vazios — assim limpar o número ou trocar de país não deixa valor obsoleto
+  // no componente pai.
   useEffect(() => {
-    if (initialized || areaCode || phone) {
-      const full = `${effectiveDDI}${areaCode}${phone}`;
-      onChange(full);
+    if (initialized || touched) {
+      onChange(`${effectiveDDI}${areaCode}${phone}`);
     }
-  }, [effectiveDDI, areaCode, phone]);
+  }, [effectiveDDI, areaCode, phone, initialized, touched]);
 
   const handleAreaCodeChange = (val: string) => {
+    setTouched(true);
     const cleaned = val.replace(/\D/g, "").slice(0, Math.max(config.areaCodeLen, 4));
     setAreaCode(cleaned);
   };
 
   const handlePhoneChange = (val: string) => {
+    setTouched(true);
     const cleaned = val.replace(/\D/g, "").slice(0, Math.max(config.phoneLen, 10));
     setPhone(cleaned);
   };
 
   const handleCustomDDIChange = (val: string) => {
+    setTouched(true);
     const cleaned = val.replace(/\D/g, "").slice(0, 4);
     setCustomDDI(cleaned);
   };
 
   const handleCountryChange = (val: string) => {
+    setTouched(true);
     setSelectedCountryCode(val);
     setAreaCode("");
     setPhone("");

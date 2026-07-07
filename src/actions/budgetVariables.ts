@@ -2,9 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { requireAuth } from "@/lib/auth";
 
 export async function getBudgetVariables() {
   try {
+    await requireAuth();
     const variables = await prisma.budgetVariable.findMany({
       orderBy: [
         { category: 'asc' },
@@ -20,6 +22,7 @@ export async function getBudgetVariables() {
 
 export async function createBudgetVariable(data: { category: string; name: string; price: number; isDefault?: boolean }) {
   try {
+    await requireAuth();
     const variable = await prisma.budgetVariable.create({
       data: {
         category: data.category,
@@ -39,6 +42,7 @@ export async function createBudgetVariable(data: { category: string; name: strin
 
 export async function deleteBudgetVariable(id: string) {
   try {
+    await requireAuth();
     await prisma.budgetVariable.delete({
       where: { id },
     });

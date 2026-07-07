@@ -17,8 +17,11 @@ if [ ! -f /app/data/dev.db ]; then
   echo "✅ Banco criado!"
 else
   echo "✅ Banco de dados encontrado."
-  # Aplicar migrações pendentes (se houver mudanças no schema)
-  $PRISMA db push --skip-generate --accept-data-loss 2>/dev/null || true
+  # Sincroniza o schema (cria índices/colunas novas). SEM --accept-data-loss:
+  # mudanças aditivas são aplicadas; se algo fosse DESTRUIR dados, o push falha
+  # ruidosamente (set -e aborta o boot) em vez de apagar contratos em silêncio.
+  echo "🔄 Sincronizando schema (não-destrutivo)..."
+  $PRISMA db push --skip-generate
 fi
 
 echo "🚀 Iniciando servidor Next.js..."

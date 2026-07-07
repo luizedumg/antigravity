@@ -36,16 +36,22 @@ export default function WebhookTestCard({ webhookUrl }: { webhookUrl: string }) 
   };
 
   return (
-    <div 
+    <button
+      type="button"
       onClick={handleTest}
-      className="metric-card" 
-      style={{ 
-        background: status === "success" ? '#10b981' : status === "error" ? '#ef4444' : 'var(--primary)', 
-        color: 'white', 
-        position: 'relative', 
+      disabled={status === "testing"}
+      className="metric-card"
+      style={{
+        background: status === "success" ? '#10b981' : status === "error" ? '#ef4444' : 'var(--primary)',
+        color: 'white',
+        position: 'relative',
         overflow: 'hidden',
-        cursor: 'pointer',
-        transition: 'all 0.3s'
+        cursor: status === "testing" ? 'wait' : 'pointer',
+        transition: 'all 0.3s',
+        textAlign: 'left',
+        border: 'none',
+        font: 'inherit',
+        width: '100%',
       }}
       title="Clique para testar a conexão com o n8n"
     >
@@ -69,6 +75,6 @@ export default function WebhookTestCard({ webhookUrl }: { webhookUrl: string }) 
            "Clique para testar Webhook"}
         </span>
       </div>
-    </div>
+    </button>
   );
 }

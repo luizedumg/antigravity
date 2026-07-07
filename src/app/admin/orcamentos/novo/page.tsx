@@ -8,17 +8,17 @@ import { ArrowLeft } from "lucide-react";
 export const dynamic = 'force-dynamic';
 
 export default async function NovoOrcamentoPage({ searchParams }: { searchParams: Promise<{ cloneId?: string }> }) {
-  const templatesRes = await getBudgetTemplates();
-  const templates: any[] = (templatesRes.success && templatesRes.data) ? templatesRes.data : [];
-
-  const variablesRes = await getBudgetVariables();
-  const globalVariables: any[] = (variablesRes.success && variablesRes.data) ? variablesRes.data : [];
-
   const params = await searchParams;
-  let cloneBudget = null;
-  if (params.cloneId) {
-    cloneBudget = await prisma.budget.findUnique({ where: { id: params.cloneId } });
-  }
+
+  // As três consultas são independentes — executa em paralelo.
+  const [templatesRes, variablesRes, cloneBudget] = await Promise.all([
+    getBudgetTemplates(),
+    getBudgetVariables(),
+    params.cloneId ? prisma.budget.findUnique({ where: { id: params.cloneId } }) : Promise.resolve(null),
+  ]);
+
+  const templates: any[] = (templatesRes.success && templatesRes.data) ? templatesRes.data : [];
+  const globalVariables: any[] = (variablesRes.success && variablesRes.data) ? variablesRes.data : [];
 
   return (
     <main className="container" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
